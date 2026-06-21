@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  php_api:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: jedi-api
+    restart: unless-stopped
+    expose:
+      - "80" # 🔹 O Apache escuta na porta 80 nativa
+    volumes:
+      - ./:/var/www/html 
+    environment:
+      - HOST=${DB_HOST}
+      - BANCO=${DB_NAME}
+      - USER=${DB_USER}
+      - SENHA=${DB_PASSWORD}
+      - DIR_PROJETO=${DIR_PROJETO}
+      
+      - PHP_OPCACHE_ENABLE=1
+      - PHP_OPCACHE_MEMORY_CONSUMPTION=256
+      - PHP_OPCACHE_MAX_ACCELERATED_FILES=20000
+      - PHP_OPCACHE_VALIDATE_TIMESTAMPS=1
+    hostname: jedi-api
+    networks:
+      - jedieduca-network
+
+networks:
+  jedieduca-network:
+    external: true

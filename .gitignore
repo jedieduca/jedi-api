@@ -1,0 +1,13 @@
+# Ignorar arquivos de configuração local e senhas
+**/api/.env
+.env
+
+# Ignorar pastas de dependências (caso use futuramente)
+**/vendor/
+**/node_modules/
+
+# Arquivos do sistema operacional e IDEs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

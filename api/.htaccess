@@ -1,12 +1,12 @@
 Options +FollowSymLinks -MultiViews
 RewriteEngine On
 
-# Define o caminho que precede o index.php na URL
-RewriteBase /api/JEDI-API/
+# Como a pasta 'api' agora é a raiz do Apache, a base vira '/'
+RewriteBase /
 
-# Se não for um arquivo ou pasta real no disco
+# Se não for um arquivo ou pasta física real no disco
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Encaminha o tráfego silenciosamente para o index.php injetando o caminho depois dele
-RewriteRule ^(.*)$ index.php/$1 [QSA,L]
+# Encaminha o tráfego de forma limpa para o index.php
+RewriteRule ^(.*)$ index.php [QSA,L]
