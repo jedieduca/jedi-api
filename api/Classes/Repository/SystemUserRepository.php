@@ -43,7 +43,16 @@ class SystemUserRepository
             $stmt->bindParam(':password', $password);
             $stmt->execute();
 
-            return $stmt->fetch(\PDO::FETCH_ASSOC);
+            $item = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            return [
+                "id" => (String) $item['id'],
+                "name" => (String) $item['name'],
+                "login" => (String) $item['login'],
+                "email" => (String) $item['email'],
+                "frontpage_id" => (String) $item['frontpage_id'],
+                "active" => (String) $item['active']
+            ];
         }
         catch (\PDOException $e) {
             throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
