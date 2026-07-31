@@ -1,9 +1,11 @@
 <?php
+
 namespace Service;
 
 use InvalidArgumentException;
 use Repository\SystemUserRepository;
 use Util\ConstantesGenericasUtil;
+use Util\ResponseBuilderUtil;
 
 class SystemUserService
 {
@@ -17,13 +19,14 @@ class SystemUserService
     }
 
     /**
-     * @return string
+     * @return array
      */
     function servicePegarUser()
     {
         $login = $this->dados['login'] ?? null;
         $password = $this->dados['password'] ?? null;
-            if ($login !== null || $password !== null) {
+
+        if ($login !== null || $password !== null) {
             $password = md5($password);
 
             $resultado = $this->SystemUserRepository->repositoryPegarUser($login, $password);
@@ -36,7 +39,7 @@ class SystemUserService
                 throw new \InvalidArgumentException(ConstantesGenericasUtil::MSG_ERRO_USER_NAO_ATIVO);
             }
 
-            return $resultado;
+            return ResponseBuilderUtil::montarAutenticar($resultado);
         }
 
         throw new \InvalidArgumentException(ConstantesGenericasUtil::MSG_ERRO_USER_BODY);
@@ -72,7 +75,5 @@ class SystemUserService
                 return $resultado;
             }
         }
-
-
     }
 }

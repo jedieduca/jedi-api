@@ -2,12 +2,10 @@
 
 namespace Util;
 
-// Garanta que a importação está correta
 use Util\ConstantesGenericasUtil;
 
 class JsonUtil
 {
-
     /**
      * @return array
      * @throws \Exception
@@ -29,7 +27,7 @@ class JsonUtil
 
     public static function processarConteudoSaida($dados)
     {
-        // Adiciona os Headers necessários para o CORS
+        // Headers de CORS e Content-Type
         $origem = $_SERVER['HTTP_ORIGIN'] ?? '*';
         header("Access-Control-Allow-Origin: $origem");
         header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
@@ -47,10 +45,7 @@ class JsonUtil
      */
     public function processarArrayParaRetornar($retorno)
     {
-        $dados = [];
-        $dados = $retorno;
-
-        $this->retornarJson($dados);
+        $this->retornarJson($retorno);
     }
 
     /**

@@ -3,10 +3,11 @@
 namespace Repository;
 
 use DB\MySQL;
+use PDO;
+use PDOException;
 
 class SystemUserRepository
 {
-    //Classe responsável por executar as requisições ao banco de dados
     /**
      * @var \DB\MySQL
      */
@@ -18,62 +19,70 @@ class SystemUserRepository
     }
 
     /**
-     * @return MySQL|object
+     * @return MySQL
      */
-    public function getMySQL()
+    public function getMySQL(): MySQL
     {
         return $this->MySQL;
     }
 
     /**
-     * @param $email
-     * @param $password
-     * @return mixed|null
+     * @param string $login
+     * @param string $password
+     * @return array|null
      */
-    public function repositoryPegarUser($email, $password)
+    public function repositoryPegarUser($login, $password)
     {
-        try{
-            //Função que executa a validação do user
+        try {
+            // Consulta buscando colunas da tabela system_user
             $consulta = 'SELECT id, name, login, email, frontpage_id, active FROM ' . self::TABELA . ' WHERE login = :login AND password = :password';
 
-
-            // Corrigido para usar a instância correta do banco de dados
             $stmt = $this->MySQL->getDb()->prepare($consulta);
-            $stmt->bindParam(':login', $email);
+            $stmt->bindParam(':login', $login);
             $stmt->bindParam(':password', $password);
             $stmt->execute();
 
-            $item = $stmt->fetch(\PDO::FETCH_ASSOC);
+            $item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Se o usuário não for encontrado ou as credenciais forem inválidas
+            if (!$item) {
+                return null;
+            }
 
             return [
-                "id" => (String) $item['id'],
-                "name" => (String) $item['name'],
-                "login" => (String) $item['login'],
-                "email" => (String) $item['email'],
-                "frontpage_id" => (String) $item['frontpage_id'],
-                "active" => (String) $item['active']
+                "id"           => $item['id'],
+                "name"         => $item['name'],
+                "login"        => $item['login'],
+                "email"        => $item['email'],
+                "frontpage_id" => $item['frontpage_id'],
+                "active"       => $item['active']
             ];
         }
-        catch (\PDOException $e) {
+        catch (PDOException $e) {
             throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
         }
     }
 
-    public function alterarSenha($login ,$senhaAntiga, $senhaNova){
+    /**
+     * @param string $login
+     * @param string $senhaAntiga
+     * @param string $senhaNova
+     * @return int
+     */
+    public function alterarSenha($login, $senhaAntiga, $senhaNova)
+    {
         try {
-            $consulta = " UPDATE " . self::TABELA . " SET password = :senhaNova  WHERE login = :login AND password = :password ";
+            $consulta = "UPDATE " . self::TABELA . " SET password = :senhaNova WHERE login = :login AND password = :password";
             $stmt = $this->MySQL->getDb()->prepare($consulta);
             $stmt->bindParam(':senhaNova', $senhaNova);
             $stmt->bindParam(':login', $login);
             $stmt->bindParam(':password', $senhaAntiga);
             $stmt->execute();
-            $resultado = $stmt->rowCount();
 
-            return $resultado;
+            return $stmt->rowCount();
 
-        } catch (\PDOException $e) {
+        } catch (PDOException $e) {
             throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
         }
-
     }
 }
