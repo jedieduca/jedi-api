@@ -206,92 +206,86 @@ class PartidasPerguntasRepository
         }
 
         try {
-            if ($id === -1) {
-                $sqlGeral = "INSERT INTO " . self::TABELA . " (dt_jogo, login, id_usuario, id_tema, jogador, idade, pontuacao, tempo_gasto, auto_avaliacao, avaliacao_jogo)
-                    VALUES (:dataHoraInicio, :jogadorEmail, :idUsuario, 17, :avatar, :idade, -1, :tempo_gasto, :autoAvaliacao, 'Noob')";
+            // 1. CRIAR NOVA PARTIDA (id == -1)
+            if ((int)$id === -1) {
+                $sqlGeral = "INSERT INTO " . self::TABELA . " 
+                (dt_jogo, login, id_usuario, id_tema, nome, jogador, idade, pontuacao, tempo_gasto, auto_avaliacao, avaliacao_jogo)
+                VALUES (:dataHoraInicio, :jogadorEmail, :idUsuario, 17, :nome, :avatar, :idade, -1, :tempo_gasto, :autoAvaliacao, 'Noob')";
 
                 $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
                 $stmt->bindParam(':dataHoraInicio', $dataHoraInicio);
                 $stmt->bindParam(':jogadorEmail', $jogadorEmail);
-                $stmt->bindParam(':idUsuario', $idUsuario, PDO::PARAM_INT);
+                $stmt->bindParam(':idUsuario', $idUsuario, \PDO::PARAM_INT);
+                $stmt->bindParam(':nome', $nome);
                 $stmt->bindParam(':avatar', $avatar);
-                $stmt->bindParam(':idade', $idade);
-                $stmt->bindParam(':tempo_gasto', $tempo_gasto);
+                $stmt->bindParam(':idade', $idade, \PDO::PARAM_INT);
+                $stmt->bindParam(':tempo_gasto', $tempo_gasto, \PDO::PARAM_INT);
                 $stmt->bindParam(':autoAvaliacao', $autoAvaliacao);
                 $stmt->execute();
 
-                $resultado = $this->MySQL->getDb()->lastInsertId();
+                return (int)$this->MySQL->getDb()->lastInsertId();
             }
 
-            if ($id !== -1) {
-                $sqlGeral = "UPDATE " . self::TABELA . " 
-                    SET `dt_jogo` = :dataHoraInicio, 
-                        `login` = :jogadorEmail,
-                        `id_usuario` = :idUsuario,
-                        `jogador` = :avatar, 
-                        `idade` = :idade, 
-                        `pontuacao` = 150,
-                        `qtd_acertos` = (SELECT COUNT(*) FROM log_perguntas lp WHERE lp.id_partida = :id AND lp.id_tema = 17 AND lp.resp_certa = lp.resp_dada),
-                        `qtd_erros` = (SELECT COUNT(*) FROM log_perguntas lp WHERE lp.id_partida = :id AND lp.id_tema = 17 AND lp.resp_certa != lp.resp_dada),
-                        `tempo_gasto` = :tempo_gasto, 
-                        `auto_avaliacao` = :autoAvaliacao,
-                        `avaliacao_jogo` = 'Pro'
-                        WHERE `id` = :id";
+            // 2. ATUALIZAR PARTIDA EXISTENTE (id > 0)
+            $sqlGeral = "UPDATE " . self::TABELA . " 
+            SET `dt_jogo` = :dataHoraInicio, 
+                `login` = :jogadorEmail,
+                `id_usuario` = :idUsuario,
+                `nome` = :nome,
+                `jogador` = :avatar, 
+                `idade` = :idade, 
+                `tempo_gasto` = :tempo_gasto, 
+                `auto_avaliacao` = :autoAvaliacao
+            WHERE `id` = :id";
 
-                $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
+            $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
 
-                $stmt->bindParam(':dataHoraInicio', $dataHoraInicio);
-                $stmt->bindParam(':id', $id);
-                $stmt->bindParam(':jogadorEmail', $jogadorEmail);
-                $stmt->bindParam(':idUsuario', $idUsuario, PDO::PARAM_INT);
-                $stmt->bindParam(':avatar', $avatar);
-                $stmt->bindParam(':idade', $idade);
-                $stmt->bindParam(':tempo_gasto', $tempo_gasto);
-                $stmt->bindParam(':autoAvaliacao', $autoAvaliacao);
-                $stmt->execute();
+            $stmt->bindParam(':dataHoraInicio', $dataHoraInicio);
+            $stmt->bindParam(':id', $id, \PDO::PARAM_INT);
+            $stmt->bindParam(':jogadorEmail', $jogadorEmail);
+            $stmt->bindParam(':idUsuario', $idUsuario, \PDO::PARAM_INT);
+            $stmt->bindParam(':nome', $nome);
+            $stmt->bindParam(':avatar', $avatar);
+            $stmt->bindParam(':idade', $idade, \PDO::PARAM_INT);
+            $stmt->bindParam(':tempo_gasto', $tempo_gasto, \PDO::PARAM_INT);
+            $stmt->bindParam(':autoAvaliacao', $autoAvaliacao);
+            $stmt->execute();
 
-                if ($stmt->rowCount() <= 0) {
-                    $resultado = -1;
-                } else {
-                    return $id;
-                }
-            }
-            return $resultado;
+            return (int)$id;
 
         } catch (\PDOException $e) {
             throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
         }
     }
 
-    /**
-     * @param $id
-     * @return void
-     */
     public function repositoryAtualizarAcertoseErros($id)
     {
-        $sqlGeral = "(SELECT (p.qtd_acertos / t.total) * 100 FROM " . self::TABELA . " p JOIN (SELECT COUNT(*) as total FROM log_perguntas WHERE id_partida = :id) t WHERE p.id = :id)";
+        $sqlGeral = "(SELECT (p.qtd_acertos / t.total) * 100 
+                     FROM " . self::TABELA . " p 
+                     JOIN (SELECT COUNT(*) as total FROM log_perguntas WHERE id_partida = :id) t 
+                     WHERE p.id = :id)";
+
         $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
-        $stmt->bindParam(':id', $id);
+        $stmt->bindParam(':id', $id, \PDO::PARAM_INT);
         $stmt->execute();
         $percentAcertos = $stmt->fetchColumn();
 
-        if ($percentAcertos >= 80.0)
+        if ($percentAcertos >= 80.0) {
             $aval = "Proplayer";
-        else if (($percentAcertos >= 60.0) && ($percentAcertos < 80.0))
+        } else if ($percentAcertos >= 60.0 && $percentAcertos < 80.0) {
             $aval = "Avançado";
-        else if (($percentAcertos >= 40.0) && ($percentAcertos < 60.0))
+        } else if ($percentAcertos >= 40.0 && $percentAcertos < 60.0) {
             $aval = "Casual";
-        else if (($percentAcertos >= 20.0) && ($percentAcertos < 40.0))
+        } else if ($percentAcertos >= 20.0 && $percentAcertos < 40.0) {
             $aval = "Iniciante";
-        else if ($percentAcertos < 20.0)
+        } else {
             $aval = "Noob";
+        }
 
         $sqlGeral = "UPDATE " . self::TABELA . " 
                 SET 
                     `qtd_acertos` = (SELECT COUNT(*) FROM log_perguntas WHERE id_partida = :id AND id_tema = 17 AND resp_certa = resp_dada),
-                    
                     `qtd_erros` = (SELECT COUNT(*) FROM log_perguntas WHERE id_partida = :id AND id_tema = 17 AND resp_certa != resp_dada),
-                    
                     `pontuacao` = (
                         SELECT pontos FROM (
                             SELECT (100000 * (p2.qtd_acertos / t.total) + (100 * t.total)) AS pontos 
@@ -300,12 +294,11 @@ class PartidasPerguntasRepository
                             WHERE p2.id = :id
                         ) AS temp
                     ),
-                    
                     `avaliacao_jogo` = :avaliacao
                 WHERE id = :id";
 
         $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
-        $stmt->bindParam(':id', $id);
+        $stmt->bindParam(':id', $id, \PDO::PARAM_INT);
         $stmt->bindParam(':avaliacao', $aval);
         $stmt->execute();
     }

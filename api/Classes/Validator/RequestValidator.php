@@ -136,6 +136,12 @@ class RequestValidator
                 elseif ($recurso === 'trocarSenha'){
                     $retorno = $usuariosService->alterarSenhaService();
                 }
+                elseif ($recurso === 'enviaEmail'){
+                    $retorno = $usuariosService->enviarEmailService();
+                }
+                elseif ($recurso === 'cadastrar'){
+                    $retorno = $usuariosService->cadastrarUsuarioService();
+                }
             break;
 
             case 'PARTIDASPERGUNTAS':

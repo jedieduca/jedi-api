@@ -85,4 +85,54 @@ class SystemUserRepository
             throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
         }
     }
+
+    public function repositoryPegarUserPorEmail($email)
+    {
+        try {
+            $consulta = "SELECT * FROM " . self::TABELA . " WHERE email = :email";
+            $stmt = $this->MySQL->getDb()->prepare($consulta);
+            $stmt->bindParam(':email', $email);
+            $stmt->execute();
+
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+        }
+    }
+
+    public function repositoryCadastrarUsurario($login, $senha, $email, $nome)
+    {
+        try {
+            $consulta = 'SELECT * FROM ' . self::TABELA . ' WHERE email = :email';
+
+            $stmt = $this->MySQL->getDb()->prepare($consulta);
+            $stmt->bindParam(':email', $email);
+            $stmt->execute();
+
+            $item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($item !== false) {
+                return 0;
+            }
+
+            $consulta = "INSERT INTO " . self::TABELA . " (name, login, password, email, frontpage_id, active)
+                        VALUES (:nome, :login, :password, :email, 41, 'Y')";
+            $stmt = $this->MySQL->getDb()->prepare($consulta);
+            $stmt->bindParam(':nome', $nome);
+            $stmt->bindParam(':login', $login);
+            $stmt->bindParam(':password', $senha);
+            $stmt->bindParam(':email', $email);
+            $stmt->execute();
+
+            $item = $this->MySQL->getDb()->lastInsertId();
+
+            if($item !== false) {
+                return 1;
+            }
+        }
+        catch (PDOException $e) {
+            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+        }
+    }
 }
