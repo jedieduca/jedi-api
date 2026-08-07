@@ -53,6 +53,7 @@ class ResponseBuilderUtil
         foreach ($lista as $linha) {
             $resultado[] = [
                 "idPartida"         => isset($linha['id_partida']) ? (int)$linha['id_partida'] : (isset($linha['idPartida']) ? (int)$linha['idPartida'] : null),
+                "nome"              => $linha['nome'] ?? "",
                 "jogador"           => $linha['jogador'] ?? "",
                 "pontuacao"         => $linha['pontuacao'] ?? "0",
                 "percentualAcertos" => $linha['percentual_acertos'] ?? ($linha['percentualAcertos'] ?? "0%"),

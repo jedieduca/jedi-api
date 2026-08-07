@@ -34,87 +34,93 @@ class PartidasPerguntasRepository
      * @param $idPartida
      * @return array
      */
-    public function repositoriRanking($idPartida)
+    public function repositoriRanking($idPartidaAtual = null): array
     {
-        try {
-            $jogadorAtual = null;
+        // 1. Busca os top 10 melhores pontuadores (1 por usuário)
+        $sqlRanking = "SELECT 
+                p.id AS idPartida,
+                COALESCE(p.nome, '') AS nome,
+                COALESCE(p.jogador, '') AS jogador,
+                CAST(ROUND(p.pontuacao, 1) AS CHAR) AS pontuacao,
+                CAST(ROUND((p.qtd_acertos / NULLIF((p.qtd_acertos + p.qtd_erros), 0)) * 100, 4) AS CHAR) AS percentualAcertos,
+                CAST(ROUND(p.tempo_gasto, 0) AS CHAR) AS tempoGasto,
+                CAST(t.totalPartidas AS CHAR) AS totalPartidas
+            FROM partidas_perguntas p
+            INNER JOIN (
+                SELECT id_usuario, MAX(pontuacao) as max_pontuacao, COUNT(*) as totalPartidas 
+                FROM partidas_perguntas 
+                GROUP BY id_usuario
+            ) t ON p.id_usuario = t.id_usuario AND p.pontuacao = t.max_pontuacao
+            GROUP BY p.id_usuario
+            ORDER BY p.pontuacao DESC
+            LIMIT 10";
 
-            // Trocamos 'su.name' por 'pp.nome' para buscar o nome do BD
-            $sqlGeral = "SELECT 
-                pp.id AS id, 
-                pp.nome AS nome_bd, 
-                MAX(pp.pontuacao) AS pontuacao, 
-                (SUM(pp.qtd_acertos)/(SUM(pp.qtd_acertos)+SUM(pp.qtd_erros)))*100 AS percentual_acertos, 
-                MIN(pp.tempo_gasto) AS tempo_gasto, 
-                COUNT(*) AS total_partidas
-                FROM " . self::TABELA . " pp
-                INNER JOIN system_user su ON (pp.id_usuario = su.id OR pp.login = su.email)
-                GROUP BY su.id
+        $stmt = $this->MySQL->getDb()->prepare($sqlRanking);
+        $stmt->execute();
+        $resultados = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-                UNION ALL
+        // Mapeia os 10 primeiros atribuindo posições de 1 a 10
+        $rankingFinal = array_map(function ($item, $index) {
+            return [
+                "idPartida"         => (int)$item['idPartida'],
+                "nome"              => (string)$item['nome'],
+                "jogador"           => (string)$item['jogador'],
+                "pontuacao"         => (string)$item['pontuacao'],
+                "percentualAcertos" => $item['percentualAcertos'] !== null ? (string)$item['percentualAcertos'] : "0",
+                "tempoGasto"        => (string)$item['tempoGasto'],
+                "totalPartidas"     => (string)$item['totalPartidas'],
+                "posicao"           => $index + 1
+            ];
+        }, $resultados, array_keys($resultados));
 
-                SELECT 
-                pp.id AS id, 
-                pp.nome AS nome_bd, 
-                pp.pontuacao, 
-                (SUM(pp.qtd_acertos)/(SUM(pp.qtd_acertos)+SUM(pp.qtd_erros)))*100 AS percentual_acertos, 
-                pp.tempo_gasto, 
-                COUNT(*) AS total_partidas 
-                FROM " . self::TABELA . " pp
-                INNER JOIN system_user su ON (pp.id_usuario = su.id OR pp.login = su.email)
-                WHERE pp.id = :idPartida
-                GROUP BY pp.id
-                
-                ORDER BY pontuacao DESC, percentual_acertos DESC, tempo_gasto ASC;";
+        // 2. Se um ID de partida foi passado, calcula a posição REAL dela no ranking global
+        if ($idPartidaAtual !== null && (int)$idPartidaAtual > 0) {
+            $idPartidaAtual = (int)$idPartidaAtual;
 
-            $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
-            $stmt->bindValue(':idPartida', $idPartida, PDO::PARAM_INT);
-            $stmt->execute();
-            $rankingCompleto = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            // Busca os dados da partida especificada
+            $sqlPartidaAtual = "SELECT 
+                p.id AS idPartida,
+                COALESCE(p.nome, '') AS nome,
+                COALESCE(p.jogador, '') AS jogador,
+                CAST(ROUND(p.pontuacao, 1) AS CHAR) AS pontuacao,
+                CAST(ROUND((p.qtd_acertos / NULLIF((p.qtd_acertos + p.qtd_erros), 0)) * 100, 4) AS CHAR) AS percentualAcertos,
+                CAST(ROUND(p.tempo_gasto, 0) AS CHAR) AS tempoGasto,
+                CAST((SELECT COUNT(*) FROM partidas_perguntas WHERE id_usuario = p.id_usuario) AS CHAR) AS totalPartidas,
+                p.pontuacao AS pontuacao_num
+            FROM partidas_perguntas p
+            WHERE p.id = :idPartida
+            LIMIT 1";
 
-            $top10 = [];
+            $stmtAtual = $this->MySQL->getDb()->prepare($sqlPartidaAtual);
+            $stmtAtual->bindParam(':idPartida', $idPartidaAtual, \PDO::PARAM_INT);
+            $stmtAtual->execute();
+            $partidaEspecifica = $stmtAtual->fetch(\PDO::FETCH_ASSOC);
 
-            foreach ($rankingCompleto as $index => $linha) {
-                $posicaoAtual = (int)($index + 1);
+            if ($partidaEspecifica) {
+                // Calcula quantas partidas únicas de usuários têm pontuação maior que esta
+                $sqlPosicaoReal = "SELECT COUNT(DISTINCT id_usuario) + 1 AS posicao_real 
+                               FROM partidas_perguntas 
+                               WHERE pontuacao > :pontuacao";
 
-                // Mapeamento em camelCase: a coluna 'nome' do BD preenche o campo 'jogador' do JSON
-                $item = [
-                    "idPartida" => (int) $linha['id'],
-                    "jogador" => $linha['nome_bd'],
-                    "pontuacao" => (float) $linha['pontuacao'],
-                    "percentualAcertos" => $linha['percentual_acertos'],
-                    "tempoGasto" => (float) $linha['tempo_gasto'],
-                    "totalPartidas" => (int) $linha['total_partidas'],
-                    "posicao" => $posicaoAtual
+                $stmtPos = $this->MySQL->getDb()->prepare($sqlPosicaoReal);
+                $stmtPos->bindValue(':pontuacao', $partidaEspecifica['pontuacao_num']);
+                $stmtPos->execute();
+                $posicaoReal = (int)$stmtPos->fetchColumn();
+
+                $rankingFinal[] = [
+                    "idPartida"         => (int)$partidaEspecifica['idPartida'],
+                    "nome"              => (string)$partidaEspecifica['nome'],
+                    "jogador"           => (string)$partidaEspecifica['jogador'],
+                    "pontuacao"         => (string)$partidaEspecifica['pontuacao'],
+                    "percentualAcertos" => $partidaEspecifica['percentualAcertos'] !== null ? (string)$partidaEspecifica['percentualAcertos'] : "0",
+                    "tempoGasto"        => (string)$partidaEspecifica['tempoGasto'],
+                    "totalPartidas"     => (string)$partidaEspecifica['totalPartidas'],
+                    "posicao"           => $posicaoReal // Retorna a posição real exata (ex: 6)
                 ];
-
-                if ($linha['id'] == $idPartida) {
-                    $jogadorAtual = $item;
-
-                    $sqlAval = "SELECT auto_avaliacao, avaliacao_jogo FROM " . self::TABELA . " WHERE id = :idPartida";
-                    $stmtAval = $this->MySQL->getDb()->prepare($sqlAval);
-                    $stmtAval->bindValue(':idPartida', $idPartida, PDO::PARAM_INT);
-                    $stmtAval->execute();
-                    $avaliacao = $stmtAval->fetch(PDO::FETCH_ASSOC);
-
-                    $jogadorAtual['autoAvaliacao'] = $avaliacao['auto_avaliacao'] ?? null;
-                    $jogadorAtual['avaliacaoJogo'] = $avaliacao['avaliacao_jogo'] ?? null;
-                }
-
-                if ($posicaoAtual <= 10) {
-                    $top10[] = $item;
-                }
             }
-
-            if ($jogadorAtual && !in_array($jogadorAtual, $top10, true)) {
-                $top10[] = $jogadorAtual;
-            }
-
-            return $top10;
-
-        } catch (\PDOException $e) {
-            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
         }
+
+        return $rankingFinal;
     }
 
     public function repositoriRankingTurma($email)
