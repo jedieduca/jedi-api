@@ -39,34 +39,33 @@ class PartidasPerguntasRepository
         try {
             $jogadorAtual = null;
 
+            // Trocamos 'su.name' por 'pp.nome' para buscar o nome do BD
             $sqlGeral = "SELECT 
-                    pp.id AS id, 
-                    pp.jogador, 
-                    su.name AS nome,
-                    MAX(pp.pontuacao) AS pontuacao, 
-                    (SUM(pp.qtd_acertos)/(SUM(pp.qtd_acertos)+SUM(pp.qtd_erros)))*100 AS percentual_acertos, 
-                    MIN(pp.tempo_gasto) AS tempo_gasto, 
-                    COUNT(*) AS total_partidas
-                    FROM " . self::TABELA . " pp
-                    INNER JOIN system_user su ON (pp.id_usuario = su.id OR pp.login = su.email)
-                    GROUP BY su.id
+                pp.id AS id, 
+                pp.nome AS nome_bd, 
+                MAX(pp.pontuacao) AS pontuacao, 
+                (SUM(pp.qtd_acertos)/(SUM(pp.qtd_acertos)+SUM(pp.qtd_erros)))*100 AS percentual_acertos, 
+                MIN(pp.tempo_gasto) AS tempo_gasto, 
+                COUNT(*) AS total_partidas
+                FROM " . self::TABELA . " pp
+                INNER JOIN system_user su ON (pp.id_usuario = su.id OR pp.login = su.email)
+                GROUP BY su.id
 
-                    UNION ALL
+                UNION ALL
 
-                    SELECT 
-                    pp.id AS id, 
-                    pp.jogador, 
-                    su.name AS nome,
-                    pp.pontuacao, 
-                    (SUM(pp.qtd_acertos)/(SUM(pp.qtd_acertos)+SUM(pp.qtd_erros)))*100 AS percentual_acertos, 
-                    pp.tempo_gasto, 
-                    COUNT(*) AS total_partidas 
-                    FROM " . self::TABELA . " pp
-                    INNER JOIN system_user su ON (pp.id_usuario = su.id OR pp.login = su.email)
-                    WHERE pp.id = :idPartida
-                    GROUP BY pp.id
-                    
-                    ORDER BY pontuacao DESC, percentual_acertos DESC, tempo_gasto ASC;";
+                SELECT 
+                pp.id AS id, 
+                pp.nome AS nome_bd, 
+                pp.pontuacao, 
+                (SUM(pp.qtd_acertos)/(SUM(pp.qtd_acertos)+SUM(pp.qtd_erros)))*100 AS percentual_acertos, 
+                pp.tempo_gasto, 
+                COUNT(*) AS total_partidas 
+                FROM " . self::TABELA . " pp
+                INNER JOIN system_user su ON (pp.id_usuario = su.id OR pp.login = su.email)
+                WHERE pp.id = :idPartida
+                GROUP BY pp.id
+                
+                ORDER BY pontuacao DESC, percentual_acertos DESC, tempo_gasto ASC;";
 
             $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
             $stmt->bindValue(':idPartida', $idPartida, PDO::PARAM_INT);
@@ -78,18 +77,18 @@ class PartidasPerguntasRepository
             foreach ($rankingCompleto as $index => $linha) {
                 $posicaoAtual = (int)($index + 1);
 
+                // Mapeamento em camelCase: a coluna 'nome' do BD preenche o campo 'jogador' do JSON
                 $item = [
-                    "id_partida" => (int) $linha['id'],
-                    "nome" => $linha['nome'],
-                    "jogador" => $linha['jogador'],
-                    "pontuacao" => $linha['pontuacao'],
-                    "percentual_acertos" => $linha['percentual_acertos'],
-                    "tempo_gasto" => $linha['tempo_gasto'],
-                    "total_partidas" => $linha['total_partidas'],
+                    "idPartida" => (int) $linha['id'],
+                    "jogador" => $linha['nome_bd'],
+                    "pontuacao" => (float) $linha['pontuacao'],
+                    "percentualAcertos" => $linha['percentual_acertos'],
+                    "tempoGasto" => (float) $linha['tempo_gasto'],
+                    "totalPartidas" => (int) $linha['total_partidas'],
                     "posicao" => $posicaoAtual
                 ];
 
-                if ($item['id'] == $idPartida) {
+                if ($linha['id'] == $idPartida) {
                     $jogadorAtual = $item;
 
                     $sqlAval = "SELECT auto_avaliacao, avaliacao_jogo FROM " . self::TABELA . " WHERE id = :idPartida";
@@ -98,8 +97,8 @@ class PartidasPerguntasRepository
                     $stmtAval->execute();
                     $avaliacao = $stmtAval->fetch(PDO::FETCH_ASSOC);
 
-                    $jogadorAtual['auto_avaliacao'] = $avaliacao['auto_avaliacao'] ?? null;
-                    $jogadorAtual['avaliacao_jogo'] = $avaliacao['avaliacao_jogo'] ?? null;
+                    $jogadorAtual['autoAvaliacao'] = $avaliacao['auto_avaliacao'] ?? null;
+                    $jogadorAtual['avaliacaoJogo'] = $avaliacao['avaliacao_jogo'] ?? null;
                 }
 
                 if ($posicaoAtual <= 10) {
