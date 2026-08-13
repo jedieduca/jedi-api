@@ -76,42 +76,4 @@ class SystemUserService
             }
         }
     }
-
-    function enviarEmailService()
-    {
-        $email= $this->dados['email'] ?? null;
-
-        if ($email !== null) {
-            $resultado = $this->SystemUserRepository->repositoryPegarUserPorEmail($email);
-
-            if($resultado === null || $resultado === false) {
-                $resultado = 0;
-            }
-
-            else{
-                $resultado = 1;
-            }
-
-
-            return ResponseBuilderUtil::montarRespostaGenerica($resultado);
-        }
-
-
-    }
-
-    function cadastrarUsuarioService()
-    {
-        $nome= $this->dados['nome'] ?? null;
-        $senha= $this->dados['senha'] ?? null;
-        $login = $this->dados['login'] ?? null;
-        $email= $this->dados['email'] ?? null;
-
-        if ($email !== null && $nome !== null && $senha !== null && $login !== null) {
-            $resultado = $this->SystemUserRepository->repositoryCadastrarUsurario($login, md5($senha), $email, $nome);
-
-            return ResponseBuilderUtil::montarRespostaGenerica($resultado);
-        }
-
-
-    }
 }
