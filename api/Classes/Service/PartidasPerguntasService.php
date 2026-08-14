@@ -83,50 +83,44 @@ class PartidasPerguntasService
      */
     public function serviceSalvarPartida()
     {
-        $id             = $this->dados['id'] ?? null;
-        $jogadorEmail   = $this->dados['jogadorEmail'] ?? null;
+        $id = $this->dados['id'] ?? null;
+        $jogadorEmail = $this->dados['jogadorEmail'] ?? null;
         $dataHoraInicio = $this->dados['dataHoraInicio'] ?? null;
-        $nome           = $this->dados['nome'] ?? null;
-        $idade          = $this->dados['idade'] ?? null;
-        $autoAvaliacao  = $this->dados['autoAvaliacao'] ?? null;
-        $avatar         = $this->dados['avatar'] ?? null;
-        $tempoGasto     = $this->dados['tempoGasto'] ?? null;
+        $nome = $this->dados['nome'] ?? null;
+        $idade = $this->dados['idade'] ?? null;
+        $autoAvaliacao = $this->dados['autoAvaliacao'] ?? null;
+        $avatar = $this->dados['avatar'] ?? null;
+        $tempoGasto = $this->dados['tempoGasto'] ?? null;
 
-        // Validação dos campos obrigatórios do payload
-        if ($id !== null && $jogadorEmail !== null && $dataHoraInicio !== null && $autoAvaliacao !== null && $avatar !== null && $tempoGasto !== null) {
+        if($id !== null && $jogadorEmail !== null && $dataHoraInicio !== null && $autoAvaliacao !== null && $avatar !== null && $tempoGasto !== null){
+            $resultado = $this->PartidasPerguntasRepository->repositorySalvarPartida($id, $jogadorEmail, $dataHoraInicio, $nome, $idade, $autoAvaliacao, $avatar, $tempoGasto);
 
-            // 1. Salva/Atualiza o registro mestre da partida
-            $resultado = $this->PartidasPerguntasRepository->repositorySalvarPartida(
-                $id,
-                $jogadorEmail,
-                $dataHoraInicio,
-                $nome,
-                $idade,
-                $autoAvaliacao,
-                $avatar,
-                $tempoGasto
-            );
-
-            if ($resultado !== null && (int)$resultado > 0) {
-                $idPartidaFinal = (int)$resultado;
-                $this->dados['id'] = $idPartidaFinal;
-
-                // 2. Se houver jogadas no payload, grava os logs e recalcula métricas
-                if (!empty($this->dados['jogadas'])) {
+            if($resultado !== null && $resultado > 0){
+                if ($id !== -1){
+                    $this->dados['id'] = $resultado;
                     $logPerguntas = new LogPerguntasService($this->dados);
                     $logPerguntas->inserirLogPerguntasService();
-
-                    $this->PartidasPerguntasRepository->repositoryAtualizarAcertoseErros($idPartidaFinal);
+                    $this->PartidasPerguntasRepository->repositoryAtualizarAcertoseErros($resultado);
                 }
 
-                // 3. Retorno estrito conforme especificação da interface de saída
-                return [
-                    "id" => (int)$idPartidaFinal
+                $jogadas = $this->dados['jogadas'] ?? [];
+
+                $partidaMestre = [
+                    'id' => $resultado,
+                    'jogadorEmail' => $jogadorEmail,
+                    'dataHoraInicio' => $dataHoraInicio,
+                    'nome' => $nome,
+                    'idade' => $idade,
+                    'autoAvaliacao' => $autoAvaliacao,
+                    'avatar' => $avatar,
+                    'tempoGasto' => $tempoGasto
                 ];
-            } else {
-                throw new \InvalidArgumentException(
-                    ConstantesGenericasUtil::MSG_ERRO_SALVARPARTIDA_SEM_REGISTRO . " Id passado: " . $id
-                );
+
+                return ResponseBuilderUtil::montarSalvarPartida($partidaMestre, $jogadas);
+            }
+
+            else{
+                throw new \InvalidArgumentException(ConstantesGenericasUtil::MSG_ERRO_SALVARPARTIDA_SEM_REGISTRO . " Id passado: " . $id);
             }
         }
 
