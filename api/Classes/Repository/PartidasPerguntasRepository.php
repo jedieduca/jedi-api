@@ -24,15 +24,15 @@ class PartidasPerguntasRepository
         try {
             $jogadorAtual = null;
 
-            $sqlGeral = "SELECT id_partida, jogador, MAX(pontuacao) AS pontuacao, 
+            $sqlGeral = "SELECT id, jogador, MAX(pontuacao) AS pontuacao, 
                     (SUM(qtd_acertos)/(SUM(qtd_acertos)+SUM(qtd_erros)))*100 AS percentual_acertos, 
                     MIN(tempo_gasto) AS tempo_gasto, COUNT(*) AS total_partidas
                     FROM " . self::TABELA . " 
                     GROUP BY login
                     UNION ALL
-                    SELECT id_partida, jogador, pontuacao, 
+                    SELECT id, jogador, pontuacao, 
                     (SUM(qtd_acertos)/(SUM(qtd_acertos)+SUM(qtd_erros)))*100 AS percentual_acertos, 
-                    tempo_gasto, COUNT(*) AS total_partidas FROM " . self::TABELA . " WHERE id_partida = :idPartida
+                    tempo_gasto, COUNT(*) AS total_partidas FROM " . self::TABELA . " WHERE id = :idPartida
                     ORDER BY pontuacao DESC, percentual_acertos DESC, tempo_gasto ASC;";
 
             $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
@@ -47,7 +47,7 @@ class PartidasPerguntasRepository
                 $posicaoAtual = (int)($index + 1);
 
                 $item = [
-                    "id_partida" => (int) $linha['id_partida'],
+                    "id_partida" => (int) $linha['id'],
                     "jogador" => $linha['jogador'],
                     "pontuacao" => $linha['pontuacao'],
                     "percentual_acertos" => $linha['percentual_acertos'],
@@ -59,7 +59,7 @@ class PartidasPerguntasRepository
                 if($item['id_partida'] == $idPartida){
                     $jogadorAtual = $item;
 
-                    $sqlGeral = "SELECT auto_avaliacao, avaliacao_jogo FROM " . self::TABELA . " WHERE id_partida = :idPartida";
+                    $sqlGeral = "SELECT auto_avaliacao, avaliacao_jogo FROM " . self::TABELA . " WHERE id = :idPartida";
                     $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
                     $stmt->bindValue(':idPartida', $idPartida, PDO::PARAM_INT);
                     $stmt->execute();
@@ -92,7 +92,7 @@ class PartidasPerguntasRepository
 
             // SQL unificado em snake_case com JOIN para buscar o ranking da turma vinculada ao email
             $sqlGeral = "SELECT 
-                        pp.id_partida, pp.jogador, pp.nome, MAX(pp.pontuacao) AS pontuacao, 
+                        pp.id, pp.jogador, pp.nome, MAX(pp.pontuacao) AS pontuacao, 
                         (SUM(pp.qtd_acertos)/(SUM(pp.qtd_acertos)+SUM(pp.qtd_erros)))*100 AS percentual_acertos, 
                         MIN(pp.tempo_gasto) AS tempo_gasto, COUNT(*) AS total_partidas
                     FROM " . self::TABELA . " pp
@@ -121,7 +121,7 @@ class PartidasPerguntasRepository
                 $posicaoAtual = (int)($index + 1);
 
                 $item = [
-                    "id_partida" => (int) $linha['id_partida'],
+                    "id_partida" => (int) $linha['id'],
                     "nome" => $linha['nome'],
                     "jogador" => $linha['jogador'],
                     "pontuacao" => $linha['pontuacao'],
@@ -166,7 +166,7 @@ class PartidasPerguntasRepository
 
         try {
             if($id === -1){
-                $sqlGeral = "INSERT INTO " . self::TABELA . " (dt_jogo, login, tema, jogador, idade, pontuacao, tempo_gasto, auto_avaliacao, avaliacao_jogo, nome)
+                $sqlGeral = "INSERT INTO " . self::TABELA . " (dt_jogo, login, id_tema, jogador, idade, pontuacao, tempo_gasto, auto_avaliacao, avaliacao_jogo, nome)
                     VALUES (:dataHoraInicio, :jogadorEmail, 17, :avatar, :idade, -1, :tempo_gasto, :autoAvaliacao, 'Noob', :nome)";
 
                 $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
