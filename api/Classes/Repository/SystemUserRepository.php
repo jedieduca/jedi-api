@@ -14,7 +14,7 @@ class SystemUserRepository
     private $MySQL;
     public const TABELA = 'system_user';
 
-    public function __construct(){
+    public function __construct() {
         $this->MySQL = new MySQL();
     }
 
@@ -83,6 +83,108 @@ class SystemUserRepository
 
         } catch (PDOException $e) {
             throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+        }
+    }
+
+    public function repositoryPegarUserPorEmail($email)
+    {
+        try {
+            $consulta = "SELECT * FROM " . self::TABELA . " WHERE email = :email";
+            $stmt = $this->MySQL->getDb()->prepare($consulta);
+            $stmt->bindParam(':email', $email);
+            $stmt->execute();
+
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+        }
+    }
+
+    public function repositoryCadastrarUsurario($login, $senha, $email, $nome)
+    {
+        try {
+            $consulta = 'SELECT * FROM ' . self::TABELA . ' WHERE email = :email';
+
+            $stmt = $this->MySQL->getDb()->prepare($consulta);
+            $stmt->bindParam(':email', $email);
+            $stmt->execute();
+
+            $item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($item !== false) {
+                return 0;
+            }
+
+            $consulta = "INSERT INTO " . self::TABELA . " (name, login, password, email, frontpage_id, active)
+                        VALUES (:nome, :login, :password, :email, 41, 'Y')";
+            $stmt = $this->MySQL->getDb()->prepare($consulta);
+            $stmt->bindParam(':nome', $nome);
+            $stmt->bindParam(':login', $login);
+            $stmt->bindParam(':password', $senha);
+            $stmt->bindParam(':email', $email);
+            $stmt->execute();
+
+            $item = $this->MySQL->getDb()->lastInsertId();
+
+            if ($item !== false) {
+                return 1;
+            }
+        }
+        catch (PDOException $e) {
+            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+        }
+    }
+
+    public function recuperarSenha($email)
+    {
+        try {
+            // 1. Busca o usuário pelo e-mail
+            $usuario = $this->repositoryPegarUserPorEmail($email);
+
+            if ($usuario === false || empty($usuario)) {
+                return 0;
+            }
+
+            // 2. Gera a nova senha em texto puro e aplica o MD5 (padrão do sistema)
+            $novaSenhaPura = $this->gerarSenhaAleatoria(10);
+            $senhaMd5 = md5($novaSenhaPura);
+
+            // 3. Atualiza no banco
+            $sucesso = $this->repositoryAtualizarSenha($usuario['id'], $senhaMd5);
+
+            // 4. Retorna a senha em texto puro se atualizou com sucesso, ou 0 se falhou
+            return $sucesso ? $novaSenhaPura : 0;
+
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
+
+    private function gerarSenhaAleatoria(int $tamanho = 10): string
+    {
+        $caracteres = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
+        $maxIndex = strlen($caracteres) - 1;
+        $senha = '';
+
+        for ($i = 0; $i < $tamanho; $i++) {
+            $senha .= $caracteres[random_int(0, $maxIndex)];
+        }
+
+        return $senha;
+    }
+
+    public function repositoryAtualizarSenha($idUsuario, $senhaHash): bool
+    {
+        try {
+            $sql = "UPDATE " . self::TABELA . " SET password = :senha WHERE id = :id";
+            $stmt = $this->MySQL->getDb()->prepare($sql);
+            $stmt->bindParam(':senha', $senhaHash);
+            $stmt->bindParam(':id', $idUsuario, PDO::PARAM_INT);
+
+            return $stmt->execute();
+        } catch (PDOException $e) {
+            return false;
         }
     }
 }
