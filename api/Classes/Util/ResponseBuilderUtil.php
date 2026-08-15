@@ -10,7 +10,7 @@ class ResponseBuilderUtil
             "resposta" => $retorno
         ];
     }
-    
+
     /**
      * Formata os dados para o endpoint "Sortear Perguntas" / "Listar Perguntas"
      * @param array $dadosBanco
@@ -80,11 +80,11 @@ class ResponseBuilderUtil
     public static function montarAutenticar(array $usuario): array
     {
         return [
-            "id"           => $usuario['id'],
+            "id"           => (String)$usuario['id'],
             "name"         => $usuario['name'] ?? "",
             "login"        => $usuario['login'] ?? "",
             "email"        => $usuario['email'] ?? "",
-            "frontpage_id" => $usuario['frontpage_id'],
+            "frontpage_id" => (String)$usuario['frontpage_id'],
             "active"       => $usuario['active']
         ];
     }
