@@ -73,12 +73,12 @@ class ResponseBuilderUtil
     public static function montarAutenticar(array $usuario): array
     {
         return [
-            "id"           => isset($usuario['id']) ? (int)$usuario['id'] : null,
+            "id"           => isset($usuario['id']),
             "name"         => $usuario['name'] ?? "",
             "login"        => $usuario['login'] ?? "",
             "email"        => $usuario['email'] ?? "",
-            "frontpage_id" => isset($usuario['frontpage_id']) ? (int)$usuario['frontpage_id'] : null,
-            "active"       => isset($usuario['active']) ? (int)$usuario['active'] : 0
+            "frontpage_id" => isset($usuario['frontpage_id']),
+            "active"       => isset($usuario['active'])
         ];
     }
 
