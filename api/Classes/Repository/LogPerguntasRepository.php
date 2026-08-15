@@ -46,7 +46,7 @@ class LogPerguntasRepository
                 }
 
                 // INSERT com todas as colunas convertidas para snake_case
-                $sql = "INSERT INTO " . self::TABELA . " (dt_jogo, id_partida, usuario, idade, tema, jogador, num_jogada, pergunta, resp_certa, resp_dada, tempo_gasto, posicao)
+                $sql = "INSERT INTO " . self::TABELA . " (dt_jogo, id_partida, usuario, idade, id_tema, jogador, num_jogada, pergunta, resp_certa, resp_dada, tempo_gasto, posicao)
                 VALUES (:dataHoraInicio, :id, :jogadorEmail, :idade, 17, :avatar, :jogadaId, :noticiaId, :respCerta, :respDada, :tempoResposta, :posicaoAvatar)";
 
                 $stmt = $this->MySQL->getDb()->prepare($sql);
