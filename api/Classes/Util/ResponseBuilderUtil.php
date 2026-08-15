@@ -4,6 +4,13 @@ namespace Util;
 
 class ResponseBuilderUtil
 {
+    public static function montarRespostaGenerica($retorno): array
+    {
+        return [
+            "resposta" => $retorno
+        ];
+    }
+
     /**
      * Formata os dados para o endpoint "Sortear Perguntas" / "Listar Perguntas"
      * @param array $dadosBanco
@@ -73,12 +80,12 @@ class ResponseBuilderUtil
     public static function montarAutenticar(array $usuario): array
     {
         return [
-            "id"           => isset($usuario['id']),
+            "id"           => (String)$usuario['id'],
             "name"         => $usuario['name'] ?? "",
             "login"        => $usuario['login'] ?? "",
             "email"        => $usuario['email'] ?? "",
-            "frontpage_id" => isset($usuario['frontpage_id']),
-            "active"       => isset($usuario['active'])
+            "frontpage_id" => (String)$usuario['frontpage_id'],
+            "active"       => $usuario['active']
         ];
     }
 
