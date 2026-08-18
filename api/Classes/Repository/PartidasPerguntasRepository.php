@@ -164,43 +164,61 @@ class PartidasPerguntasRepository
             $idade = 0;
         }
 
-        try {
-            if($id === -1){
-                $sqlGeral = "INSERT INTO " . self::TABELA . " (dt_jogo, login, id_tema, jogador, idade, pontuacao, tempo_gasto, auto_avaliacao, avaliacao_jogo, nome)
-                    VALUES (:dataHoraInicio, :jogadorEmail, 17, :avatar, :idade, -1, :tempo_gasto, :autoAvaliacao, 'Noob', :nome)";
+        $idInt = (int) $id;
 
-                $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
+        try {
+            // -------------------------------------------------------------
+            // CASO 1: CRIAR NOVA PARTIDA ($id == -1)
+            // -------------------------------------------------------------
+            if ($idInt === -1) {
+                // 1. Busca o ID do usuário em system_user pelo e-mail
+                $sqlUser = "SELECT id FROM system_user WHERE email = :email LIMIT 1";
+                $stmtUser = $this->MySQL->getDb()->prepare($sqlUser);
+                $stmtUser->bindValue(':email', $jogadorEmail);
+                $stmtUser->execute();
+                $id_usuario = $stmtUser->fetchColumn() ?: 1; // Fallback caso não encontre
+
+                // 2. Insere na tabela partidas_perguntas
+                $sqlInsert = "INSERT INTO " . self::TABELA . " 
+                    (dt_jogo, id_usuario, login, jogador, id_tema, tutor, nome, idade, pontuacao, tempo_gasto, auto_avaliacao, avaliacao_jogo, finalizado)
+                    VALUES (:dataHoraInicio, :id_usuario, :login, :jogador, 14, 0, :nome, :idade, -1, :tempo_gasto, :autoAvaliacao, 'Noob', 0)";
+
+                $stmt = $this->MySQL->getDb()->prepare($sqlInsert);
                 $stmt->bindParam(':dataHoraInicio', $dataHoraInicio);
-                $stmt->bindParam(':jogadorEmail', $jogadorEmail);
-                $stmt->bindParam(':avatar', $avatar);
+                $stmt->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
+                $stmt->bindParam(':login', $jogadorEmail);
+                $stmt->bindParam(':jogador', $avatar);
+                $stmt->bindParam(':nome', $nome);
                 $stmt->bindParam(':idade', $idade);
                 $stmt->bindParam(':tempo_gasto', $tempo_gasto);
                 $stmt->bindParam(':autoAvaliacao', $autoAvaliacao);
-                $stmt->bindParam(':nome', $nome);
                 $stmt->execute();
 
-                $resultado = $this->MySQL->getDb()->lastInsertId();
+                return $this->MySQL->getDb()->lastInsertId();
             }
 
-            if ($id !== -1){
-                $sqlGeral = "UPDATE " . self::TABELA . " 
-                    SET `dt_jogo` = :dataHoraInicio, 
-                        `login` = :jogadorEmail,
-                        `jogador` = :avatar, 
-                        `idade` = :idade, 
-                        `pontuacao` = 150,
-                        `qtd_acertos` = (SELECT COUNT(*) FROM log_perguntas lp WHERE lp.id_partida = :id AND lp.id_tema = 17 AND lp.resp_certa = lp.resp_dada),
-                        `qtd_erros` = (SELECT COUNT(*) FROM log_perguntas lp WHERE lp.id_partida = :id AND lp.id_tema = 17 AND lp.resp_certa != lp.resp_dada),
-                        `tempo_gasto` = :tempo_gasto, 
+            // -------------------------------------------------------------
+            // CASO 2: ATUALIZAR/FINALIZAR PARTIDA ($id != -1)
+            // -------------------------------------------------------------
+            if ($idInt !== -1) {
+                $sqlUpdate = "UPDATE " . self::TABELA . " 
+                    SET `dt_jogo`        = :dataHoraInicio, 
+                        `login`          = :jogadorEmail,
+                        `jogador`        = :avatar, 
+                        `idade`          = :idade, 
+                        `pontuacao`      = 150,
+                        `qtd_acertos`    = (SELECT COUNT(*) FROM log_perguntas lp WHERE lp.id_partida = :id AND lp.id_tema = 17 AND lp.resp_certa = lp.resp_dada),
+                        `qtd_erros`      = (SELECT COUNT(*) FROM log_perguntas lp WHERE lp.id_partida = :id AND lp.id_tema = 17 AND lp.resp_certa != lp.resp_dada),
+                        `tempo_gasto`    = :tempo_gasto, 
                         `auto_avaliacao` = :autoAvaliacao,
                         `avaliacao_jogo` = 'Pro', 
-                        `nome` = :nome 
-                        WHERE `id` = :id";
+                        `nome`           = :nome,
+                        `finalizado`     = 1
+                    WHERE `id` = :id";
 
-                $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
-
+                $stmt = $this->MySQL->getDb()->prepare($sqlUpdate);
                 $stmt->bindParam(':dataHoraInicio', $dataHoraInicio);
-                $stmt->bindParam(':id', $id);
+                $stmt->bindParam(':id', $idInt, PDO::PARAM_INT);
                 $stmt->bindParam(':jogadorEmail', $jogadorEmail);
                 $stmt->bindParam(':avatar', $avatar);
                 $stmt->bindParam(':idade', $idade);
@@ -209,17 +227,11 @@ class PartidasPerguntasRepository
                 $stmt->bindParam(':nome', $nome);
                 $stmt->execute();
 
-                if($stmt->rowCount() <= 0){
-                    $resultado = -1;
-                }
-                else{
-                    return $id;
-                }
+                return $idInt;
             }
-            return $resultado;
 
         } catch (\PDOException $e) {
-            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+            throw new \InvalidArgumentException("Erro SQL ao salvar/atualizar partida: " . $e->getMessage());
         }
     }
 
@@ -229,44 +241,57 @@ class PartidasPerguntasRepository
      */
     public function repositoryAtualizarAcertoseErros($id)
     {
-        $sqlGeral = "(SELECT (p.qtd_acertos / t.total) * 100 FROM " . self::TABELA . " p JOIN (SELECT COUNT(*) as total FROM log_perguntas WHERE id_partida = :id) t WHERE p.id_partida = :id)";
-        $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
-        $stmt->bindParam(':id', $id);
-        $stmt->execute();
-        $percentAcertos = $stmt->fetchColumn();
+        try {
+            $idInt = (int) $id;
 
-        if ($percentAcertos >= 80.0)
-            $aval = "Proplayer";
-        else if (($percentAcertos >= 60.0) && ($percentAcertos < 80.0))
-            $aval = "Avançado";
-        else if (($percentAcertos >= 40.0) && ($percentAcertos < 60.0))
-            $aval = "Casual";
-        else if (($percentAcertos >= 20.0) && ($percentAcertos < 40.0))
-            $aval = "Iniciante";
-        else if ($percentAcertos < 20.0)
-            $aval = "Noob";
+            // 1. Calcula a quantidade de acertos, erros e total diretamente no log da partida
+            $sqlContagem = "SELECT 
+                            COUNT(*) AS total,
+                            SUM(CASE WHEN resp_certa = resp_dada THEN 1 ELSE 0 END) AS acertos,
+                            SUM(CASE WHEN resp_certa != resp_dada THEN 1 ELSE 0 END) AS erros
+                        FROM log_perguntas 
+                        WHERE id_partida = :id";
 
-        $sqlGeral = "UPDATE " . self::TABELA . " 
-                SET 
-                    `qtd_acertos` = (SELECT COUNT(*) FROM log_perguntas WHERE id_partida = :id AND id_tema = 17 AND resp_certa = resp_dada),
-                    
-                    `qtd_erros` = (SELECT COUNT(*) FROM log_perguntas WHERE id_partida = :id AND id_tema = 17 AND resp_certa != resp_dada),
-                    
-                    `pontuacao` = (
-                        SELECT pontos FROM (
-                            SELECT (100000 * (p2.qtd_acertos / t.total) + (100 * t.total)) AS pontos 
-                            FROM " . self::TABELA . " p2 
-                            JOIN (SELECT COUNT(*) as total FROM log_perguntas WHERE id_partida = :id) t 
-                            WHERE p2.id_partida = :id
-                        ) AS temp
-                    ),
-                    
-                    `avaliacao_jogo` = :avaliacao
-                WHERE id_partida = :id";
+            $stmt = $this->MySQL->getDb()->prepare($sqlContagem);
+            $stmt->bindParam(':id', $idInt, PDO::PARAM_INT);
+            $stmt->execute();
+            $dados = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
-        $stmt->bindParam(':id', $id);
-        $stmt->bindParam(':avaliacao', $aval);
-        $stmt->execute();
+            $total   = (int) ($dados['total'] ?? 0);
+            $acertos = (int) ($dados['acertos'] ?? 0);
+            $erros   = (int) ($dados['erros'] ?? 0);
+
+            // 2. Calcula o percentual e define a avaliação
+            $percentAcertos = $total > 0 ? ($acertos / $total) * 100 : 0;
+
+            if ($percentAcertos >= 80.0)      $aval = "Proplayer";
+            else if ($percentAcertos >= 60.0) $aval = "Avançado";
+            else if ($percentAcertos >= 40.0) $aval = "Casual";
+            else if ($percentAcertos >= 20.0) $aval = "Iniciante";
+            else                              $aval = "Noob";
+
+            // 3. Formula a pontuação com base nos acertos calculados
+            $pontuacao = $total > 0 ? (int)(100000 * ($acertos / $total) + (100 * $total)) : 0;
+
+            // 4. Executa um UPDATE direto e limpo na tabela partidas_perguntas
+            $sqlUpdate = "UPDATE " . self::TABELA . " 
+                      SET `qtd_acertos`    = :acertos,
+                          `qtd_erros`      = :erros,
+                          `pontuacao`      = :pontuacao,
+                          `avaliacao_jogo` = :avaliacao,
+                          `finalizado`     = 1
+                      WHERE id = :id";
+
+            $stmt = $this->MySQL->getDb()->prepare($sqlUpdate);
+            $stmt->bindParam(':acertos', $acertos, PDO::PARAM_INT);
+            $stmt->bindParam(':erros', $erros, PDO::PARAM_INT);
+            $stmt->bindParam(':pontuacao', $pontuacao, PDO::PARAM_INT);
+            $stmt->bindParam(':avaliacao', $aval);
+            $stmt->bindParam(':id', $idInt, PDO::PARAM_INT);
+            $stmt->execute();
+
+        } catch (\PDOException $e) {
+            throw new \InvalidArgumentException("Erro ao atualizar acertos e erros: " . $e->getMessage());
+        }
     }
 }

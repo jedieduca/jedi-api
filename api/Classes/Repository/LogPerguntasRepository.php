@@ -9,10 +9,9 @@ class LogPerguntasRepository
 {
     private $MySQL;
 
-    // Tabela padronizada em snake_case
     public const TABELA = 'log_perguntas';
 
-    public function __construct(){
+    public function __construct() {
         $this->MySQL = new MySQL();
     }
 
@@ -21,53 +20,58 @@ class LogPerguntasRepository
         return $this->MySQL;
     }
 
-    public function inserirLogPerguntasRepository($id, $jogadorEmail, $dataHoraInicio, $idade, $avatar, $jogadaId, $noticiaId, $avaliacaoCorreta, $tempoResposta, $posicaoAvatar){
+    public function inserirLogPerguntasRepository($idPartida, $jogadorEmail, $dataHoraInicio, $idade, $avatar, $jogadaId, $noticiaId, $avaliacaoCorreta, $tempoResposta, $posicaoAvatar)
+    {
         $resultado = -1;
-        try{
-            // Coluna resp_certa em snake_case na tabela pergunta2
-            $respCertaSQL = "SELECT pergunta2.resp_certa FROM pergunta2 WHERE pergunta2.id = :noticiaId";
+        try {
+            // 1. Busca a resposta correta da pergunta
+            $respCertaSQL = "SELECT resp_certa FROM pergunta WHERE id = :noticiaId";
             $stmt = $this->MySQL->getDb()->prepare($respCertaSQL);
-            $stmt->bindParam(':noticiaId', $noticiaId);
+            $stmt->bindParam(':noticiaId', $noticiaId, PDO::PARAM_INT);
             $stmt->execute();
 
-            $respCerta = $stmt->fetch();
+            $pergunta = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (isset($respCerta['resp_certa']) && $respCerta['resp_certa'] !== null) {
+            if (isset($pergunta['resp_certa']) && $pergunta['resp_certa'] !== null) {
+                $respCertaStr = $pergunta['resp_certa'];
 
-                if ($avaliacaoCorreta === true) {
-                    $avaliacaoCorreta = $respCerta['resp_certa'];
-                } elseif ($avaliacaoCorreta === false) {
-
-                    if ($respCerta['resp_certa'] === 'FAKE') {
-                        $avaliacaoCorreta = 'NÃO FAKE';
-                    } else {
-                        $avaliacaoCorreta = 'FAKE';
-                    }
+                // 2. Determina qual foi a resposta dada pelo jogador com base na validação booleana
+                if ($avaliacaoCorreta === true || $avaliacaoCorreta === 'true' || $avaliacaoCorreta === 1) {
+                    $respDada = $respCertaStr;
+                } else {
+                    $respDada = ($respCertaStr === 'FAKE') ? 'NÃO FAKE' : 'FAKE';
                 }
 
-                // INSERT com todas as colunas convertidas para snake_case
-                $sql = "INSERT INTO " . self::TABELA . " (dt_jogo, id_partida, usuario, idade, id_tema, jogador, num_jogada, pergunta, resp_certa, resp_dada, tempo_gasto, posicao)
-                VALUES (:dataHoraInicio, :id, :jogadorEmail, :idade, 17, :avatar, :jogadaId, :noticiaId, :respCerta, :respDada, :tempoResposta, :posicaoAvatar)";
+                // 3. Busca o id_usuario em system_user pelo e-mail recebido
+                $sqlUser = "SELECT id FROM system_user WHERE email = :email LIMIT 1";
+                $stmtUser = $this->MySQL->getDb()->prepare($sqlUser);
+                $stmtUser->bindValue(':email', $jogadorEmail);
+                $stmtUser->execute();
+                $id_usuario = $stmtUser->fetchColumn() ?: 1;
+
+                // 4. INSERT 100% alinhado com as colunas da imagem (sem a coluna 'login')
+                $sql = "INSERT INTO " . self::TABELA . " 
+                    (id_partida, dt_jogo, id_usuario, jogador, idade, id_tema, num_jogada, id_pergunta, resp_certa, resp_dada, tempo_gasto, realizada_tutor, posicao)
+                    VALUES (:idPartida, :dataHoraInicio, :id_usuario, :avatar, :idade, 14, :jogadaId, :noticiaId, :respCerta, :respDada, :tempoResposta, 1, :posicaoAvatar)";
 
                 $stmt = $this->MySQL->getDb()->prepare($sql);
+                $stmt->bindParam(':idPartida', $idPartida, PDO::PARAM_INT);
                 $stmt->bindParam(':dataHoraInicio', $dataHoraInicio);
-                $stmt->bindParam(':jogadorEmail', $jogadorEmail);
-                $stmt->bindParam(':id', $id);
-                $stmt->bindParam(':idade', $idade);
+                $stmt->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
                 $stmt->bindParam(':avatar', $avatar);
-                $stmt->bindParam(':jogadaId', $jogadaId);
-                $stmt->bindParam(':noticiaId', $noticiaId);
-                $stmt->bindParam(':respCerta', $respCerta['resp_certa']);
-                $stmt->bindParam(':respDada', $avaliacaoCorreta);
+                $stmt->bindParam(':idade', $idade, PDO::PARAM_INT);
+                $stmt->bindParam(':jogadaId', $jogadaId, PDO::PARAM_INT);
+                $stmt->bindParam(':noticiaId', $noticiaId, PDO::PARAM_INT);
+                $stmt->bindParam(':respCerta', $respCertaStr);
+                $stmt->bindParam(':respDada', $respDada);
                 $stmt->bindParam(':tempoResposta', $tempoResposta);
-                $stmt->bindParam(':posicaoAvatar', $posicaoAvatar);
+                $stmt->bindParam(':posicaoAvatar', $posicaoAvatar, PDO::PARAM_INT);
                 $stmt->execute();
 
                 $resultado = $this->MySQL->getDb()->lastInsertId();
             }
-        }
-        catch (\PDOException $e) {
-            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+        } catch (\PDOException $e) {
+            throw new \InvalidArgumentException("Erro SQL no LogPerguntas: " . $e->getMessage());
         }
 
         return $resultado;
