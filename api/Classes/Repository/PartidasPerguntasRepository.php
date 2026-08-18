@@ -195,7 +195,7 @@ class PartidasPerguntasRepository
                         `auto_avaliacao` = :autoAvaliacao,
                         `avaliacao_jogo` = 'Pro', 
                         `nome` = :nome 
-                        WHERE `id_partida` = :id";
+                        WHERE `id` = :id";
 
                 $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
 
