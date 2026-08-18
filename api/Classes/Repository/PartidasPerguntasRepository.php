@@ -248,9 +248,9 @@ class PartidasPerguntasRepository
 
         $sqlGeral = "UPDATE " . self::TABELA . " 
                 SET 
-                    `qtd_acertos` = (SELECT COUNT(*) FROM log_perguntas WHERE id_partida = :id AND tema = 17 AND resp_certa = resp_dada),
+                    `qtd_acertos` = (SELECT COUNT(*) FROM log_perguntas WHERE id_partida = :id AND id_tema = 17 AND resp_certa = resp_dada),
                     
-                    `qtd_erros` = (SELECT COUNT(*) FROM log_perguntas WHERE id_partida = :id AND tema = 17 AND resp_certa != resp_dada),
+                    `qtd_erros` = (SELECT COUNT(*) FROM log_perguntas WHERE id_partida = :id AND id_tema = 17 AND resp_certa != resp_dada),
                     
                     `pontuacao` = (
                         SELECT pontos FROM (
