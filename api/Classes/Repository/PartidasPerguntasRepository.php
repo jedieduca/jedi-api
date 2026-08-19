@@ -24,13 +24,13 @@ class PartidasPerguntasRepository
         try {
             $jogadorAtual = null;
 
-            $sqlGeral = "SELECT id, nome, MAX(pontuacao) AS pontuacao, 
+            $sqlGeral = "SELECT id, nome, jogador, MAX(pontuacao) AS pontuacao, 
                     (SUM(qtd_acertos)/(SUM(qtd_acertos)+SUM(qtd_erros)))*100 AS percentual_acertos, 
                     MIN(tempo_gasto) AS tempo_gasto, COUNT(*) AS total_partidas
                     FROM " . self::TABELA . " 
                     GROUP BY login
-                    UNION ALL
-                    SELECT id, nome, pontuacao, 
+                    UNION ALL   
+                    SELECT id, nome,jogador, pontuacao, 
                     (SUM(qtd_acertos)/(SUM(qtd_acertos)+SUM(qtd_erros)))*100 AS percentual_acertos, 
                     tempo_gasto, COUNT(*) AS total_partidas FROM " . self::TABELA . " WHERE id = :idPartida
                     ORDER BY pontuacao DESC, percentual_acertos DESC, tempo_gasto ASC;";
@@ -48,7 +48,8 @@ class PartidasPerguntasRepository
 
                 $item = [
                     "id_partida" => (int) $linha['id'],
-                    "jogador" => $linha['nome'],
+                    "jogador" => $linha['jogador'],
+                    "nome" => $linha['nome'],
                     "pontuacao" => $linha['pontuacao'],
                     "percentual_acertos" => $linha['percentual_acertos'],
                     "tempo_gasto" => $linha['tempo_gasto'],
