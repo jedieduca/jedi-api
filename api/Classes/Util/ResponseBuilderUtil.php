@@ -61,6 +61,7 @@ class ResponseBuilderUtil
             $resultado[] = [
                 "idPartida"         => isset($linha['id_partida']) ? (int)$linha['id_partida'] : (isset($linha['idPartida']) ? (int)$linha['idPartida'] : null),
                 "jogador"           => $linha['jogador'] ?? "",
+                "nome"              => $linha['nome'],
                 "pontuacao"         => $linha['pontuacao'] ?? "0",
                 "percentualAcertos" => $linha['percentual_acertos'] ?? ($linha['percentualAcertos'] ?? "0%"),
                 "tempoGasto"        => $linha['tempo_gasto'] ?? ($linha['tempoGasto'] ?? "00:00"),
@@ -95,30 +96,13 @@ class ResponseBuilderUtil
      * @param array $jogadas
      * @return array
      */
-    public static function montarSalvarPartida(array $partida, array $jogadas = []): array
+    public static function montarSalvarPartida($partida): array
     {
-        $jogadasFormatadas = [];
-
-        foreach ($jogadas as $jogada) {
-            $jogadasFormatadas[] = [
-                "jogadaId"         => isset($jogada['jogada_id']) ? (int)$jogada['jogada_id'] : (isset($jogada['jogadaId']) ? (int)$jogada['jogadaId'] : null),
-                "noticiaId"        => isset($jogada['noticia_id']) ? (int)$jogada['noticia_id'] : (isset($jogada['noticiaId']) ? (int)$jogada['noticiaId'] : null),
-                "avaliacaoCorreta" => isset($jogada['avaliacao_correta']) ? (int)$jogada['avaliacao_correta'] : (isset($jogada['avaliacaoCorreta']) ? (int)$jogada['avaliacaoCorreta'] : null),
-                "tempoResposta"    => isset($jogada['tempo_resposta']) ? (int)$jogada['tempo_resposta'] : (isset($jogada['tempoResposta']) ? (int)$jogada['tempoResposta'] : null),
-                "posicaoAvatar"    => $jogada['posicao_avatar'] ?? ($jogada['posicaoAvatar'] ?? "")
-            ];
-        }
+        // Garante extrair o ID caso receba um array, objeto ou valor numérico/string
+        $id = is_array($partida) ? ($partida['id'] ?? $partida[0] ?? 0) : $partida;
 
         return [
-            "id"             => isset($partida['id']) ? (int)$partida['id'] : null,
-            "jogadorEmail"   => $partida['jogador_email'] ?? ($partida['jogadorEmail'] ?? ""),
-            "dataHoraInicio" => $partida['data_hora_inicio'] ?? ($partida['dataHoraInicio'] ?? date('Y-m-d H:i:s')),
-            "nome"           => $partida['nome'] ?? "",
-            "idade"          => isset($partida['idade']) ? (int)$partida['idade'] : null,
-            "autoAvaliacao"  => $partida['auto_avaliacao'] ?? ($partida['autoAvaliacao'] ?? ""),
-            "avatar"         => $partida['avatar'] ?? "",
-            "tempoGasto"     => isset($partida['tempo_gasto']) ? (int)$partida['tempoGasto'] : (isset($partida['tempoGasto']) ? (int)$partida['tempoGasto'] : null),
-            "jogadas"        => $jogadasFormatadas
+            "id" => (int) $id
         ];
     }
 }
