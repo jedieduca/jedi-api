@@ -61,6 +61,7 @@ class ResponseBuilderUtil
             $resultado[] = [
                 "idPartida"         => isset($linha['id_partida']) ? (int)$linha['id_partida'] : (isset($linha['idPartida']) ? (int)$linha['idPartida'] : null),
                 "jogador"           => $linha['jogador'] ?? "",
+                "nome"              => $linha['nome'],
                 "pontuacao"         => $linha['pontuacao'] ?? "0",
                 "percentualAcertos" => $linha['percentual_acertos'] ?? ($linha['percentualAcertos'] ?? "0%"),
                 "tempoGasto"        => $linha['tempo_gasto'] ?? ($linha['tempoGasto'] ?? "00:00"),
