@@ -112,7 +112,6 @@ class SystemUserService
     {
         $email = trim($this->dados['email'] ?? '');
         if (!empty($email)) {
-            // Retorna a nova senha em texto puro se der certo, ou 0 se falhar
 
             $resultado = $this->SystemUserRepository->recuperarSenha($email);
             return [
