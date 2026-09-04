@@ -104,7 +104,8 @@ class SystemUserRepository
     public function repositoryCadastrarUsurario($login, $senha, $email, $nome)
     {
         try {
-            $consulta = 'SELECT * FROM ' . self::TABELA . ' WHERE email = :email';
+            // 1. Verifica se o e-mail já existe
+            $consulta = 'SELECT id FROM ' . self::TABELA . ' WHERE email = :email';
 
             $stmt = $this->MySQL->getDb()->prepare($consulta);
             $stmt->bindParam(':email', $email);
@@ -113,11 +114,15 @@ class SystemUserRepository
             $item = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($item !== false) {
-                return 0;
+                return 0; // Usuário já cadastrado
             }
 
+            // Inicia a transação para garantir atomicidade das duas inserções
+            $this->MySQL->getDb()->beginTransaction();
+
+            // 2. Insere o novo usuário na tabela system_user
             $consulta = "INSERT INTO " . self::TABELA . " (name, login, password, email, frontpage_id, active)
-                        VALUES (:nome, :login, :password, :email, 41, 'Y')";
+                    VALUES (:nome, :login, :password, :email, 41, 'Y')";
             $stmt = $this->MySQL->getDb()->prepare($consulta);
             $stmt->bindParam(':nome', $nome);
             $stmt->bindParam(':login', $login);
@@ -125,14 +130,34 @@ class SystemUserRepository
             $stmt->bindParam(':email', $email);
             $stmt->execute();
 
-            $item = $this->MySQL->getDb()->lastInsertId();
+            // 3. Captura o ID do aluno recém-criado
+            $idAlunoCriado = (int) $this->MySQL->getDb()->lastInsertId();
 
-            if ($item !== false) {
-                return 1;
+            echo $idAlunoCriado;
+
+            if ($idAlunoCriado > 0) {
+                // 4. Insere o vínculo na tabela turma_aluno com id_turma = 46
+                $sqlTurmaAluno = "INSERT INTO turma_aluno (id_turma, id_aluno) VALUES (46, :id_aluno)";
+                $stmtTurma = $this->MySQL->getDb()->prepare($sqlTurmaAluno);
+                $stmtTurma->bindParam(':id_aluno', $idAlunoCriado, PDO::PARAM_INT);
+                $stmtTurma->execute();
+
+                // Confirma todas as inserções no banco
+                $this->MySQL->getDb()->commit();
+
+                return 1; // Sucesso
             }
-        }
-        catch (PDOException $e) {
-            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+
+            // Se por algum motivo o id não foi retornado, cancela a operação
+            $this->MySQL->getDb()->rollBack();
+            return 0;
+
+        } catch (PDOException $e) {
+            // Desfaz qualquer inserção pendente caso ocorra um erro de SQL
+            if ($this->MySQL->getDb()->inTransaction()) {
+                $this->MySQL->getDb()->rollBack();
+            }
+            throw new \InvalidArgumentException("Erro SQL ao cadastrar usuário: " . $e->getMessage());
         }
     }
 
