@@ -13,6 +13,8 @@ class SystemUserRepository
      */
     private $MySQL;
     public const TABELA = 'system_user';
+    public const GRUPO_DISCENTE = 4;          // system_group 'Discente'
+    public const ESCOLA_AVULSOS = 106;        // escola 'Escola JEDi Educa'
 
     public function __construct() {
         $this->MySQL = new MySQL();
@@ -104,34 +106,58 @@ class SystemUserRepository
     public function repositoryCadastrarUsurario($login, $senha, $email, $nome)
     {
         try {
-            $consulta = 'SELECT * FROM ' . self::TABELA . ' WHERE email = :email';
+            $consulta = 'SELECT email, login FROM ' . self::TABELA . ' WHERE email = :email OR login = :login';
 
             $stmt = $this->MySQL->getDb()->prepare($consulta);
             $stmt->bindParam(':email', $email);
+            $stmt->bindParam(':login', $login);
             $stmt->execute();
 
-            $item = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($item !== false) {
-                return 0;
+            // 0 = email já cadastrado | 2 = login já cadastrado
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
+                if (strcasecmp((string) $item['email'], $email) === 0) {
+                    return 0;
+                }
+                if (strcasecmp((string) $item['login'], $login) === 0) {
+                    return 2;
+                }
             }
 
-            $consulta = "INSERT INTO " . self::TABELA . " (name, login, password, email, frontpage_id, active)
-                        VALUES (:nome, :login, :password, :email, 41, 'Y')";
-            $stmt = $this->MySQL->getDb()->prepare($consulta);
+            $db = $this->MySQL->getDb();
+            $db->beginTransaction();
+
+            // 1. Usuário
+            $consulta = "INSERT INTO " . self::TABELA . " (name, login, password, email, frontpage_id, active, custom_code, otp_secret)
+                        VALUES (:nome, :login, :password, :email, 41, 'Y', '', '')";
+            $stmt = $db->prepare($consulta);
             $stmt->bindParam(':nome', $nome);
             $stmt->bindParam(':login', $login);
             $stmt->bindParam(':password', $senha);
             $stmt->bindParam(':email', $email);
             $stmt->execute();
 
-            $item = $this->MySQL->getDb()->lastInsertId();
+            $idUsuario = (int) $db->lastInsertId();
 
-            if ($item !== false) {
-                return 1;
-            }
+            // 2. Grupo Discente (system_user_group.id não é AUTO_INCREMENT)
+            $stmt = $db->prepare("INSERT INTO system_user_group (id, system_user_id, system_group_id)
+                                  SELECT COALESCE(MAX(id), 0) + 1, :idUsuario, :idGrupo FROM system_user_group");
+            $stmt->bindValue(':idUsuario', $idUsuario, PDO::PARAM_INT);
+            $stmt->bindValue(':idGrupo', self::GRUPO_DISCENTE, PDO::PARAM_INT);
+            $stmt->execute();
+
+            // 3. Escola padrão dos alunos avulsos
+            $stmt = $db->prepare("INSERT INTO aluno_escola (id_aluno, id_escola) VALUES (:idUsuario, :idEscola)");
+            $stmt->bindValue(':idUsuario', $idUsuario, PDO::PARAM_INT);
+            $stmt->bindValue(':idEscola', self::ESCOLA_AVULSOS, PDO::PARAM_INT);
+            $stmt->execute();
+
+            $db->commit();
+            return 1;
         }
         catch (PDOException $e) {
+            if (isset($db) && $db->inTransaction()) {
+                $db->rollBack();
+            }
             throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
         }
     }
