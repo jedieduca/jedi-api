@@ -140,25 +140,25 @@ class SystemUserRepository
             $stmt->execute();
 
             // 3. Captura o ID do aluno recém-criado
-            $idAlunoCriado = (int) $db->lastInsertId();
+            $idUsuarioCriado = (int) $db->lastInsertId();
 
             // 4. Grupo Discente (system_user_group.id não é AUTO_INCREMENT)
             $stmt = $db->prepare("INSERT INTO system_user_group (id, system_user_id, system_group_id)
-                                  SELECT COALESCE(MAX(id), 0) + 1, :idAluno, :idGrupo FROM system_user_group");
-            $stmt->bindValue(':idAluno', $idAlunoCriado, PDO::PARAM_INT);
+                                  SELECT COALESCE(MAX(id), 0) + 1, :idUsuario, :idGrupo FROM system_user_group");
+            $stmt->bindValue(':idUsuario', $idUsuarioCriado, PDO::PARAM_INT);
             $stmt->bindValue(':idGrupo', self::GRUPO_DISCENTE, PDO::PARAM_INT);
             $stmt->execute();
 
             // 5. Escola padrão dos alunos avulsos
-            $stmt = $db->prepare("INSERT INTO aluno_escola (id_aluno, id_escola) VALUES (:idAluno, :idEscola)");
-            $stmt->bindValue(':idAluno', $idAlunoCriado, PDO::PARAM_INT);
+            $stmt = $db->prepare("INSERT INTO usuario_escola (id_usuario, id_escola) VALUES (:idUsuario, :idEscola)");
+            $stmt->bindValue(':idUsuario', $idUsuarioCriado, PDO::PARAM_INT);
             $stmt->bindValue(':idEscola', self::ESCOLA_AVULSOS, PDO::PARAM_INT);
             $stmt->execute();
 
             // 6. Vincula o aluno à turma padrão dos avulsos
             $stmt = $db->prepare("INSERT INTO turma_aluno (id_turma, id_aluno) VALUES (:idTurma, :idAluno)");
             $stmt->bindValue(':idTurma', self::TURMA_AVULSOS, PDO::PARAM_INT);
-            $stmt->bindValue(':idAluno', $idAlunoCriado, PDO::PARAM_INT);
+            $stmt->bindValue(':idAluno', $idUsuarioCriado, PDO::PARAM_INT);
             $stmt->execute();
 
             // Confirma todas as inserções no banco
