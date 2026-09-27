@@ -106,59 +106,61 @@ class SystemUserRepository
     public function repositoryCadastrarUsurario($login, $senha, $email, $nome)
     {
         try {
-            $consulta = 'SELECT email, login FROM ' . self::TABELA . ' WHERE email = :email OR login = :login';
+            // 1. Verifica se o e-mail já existe
+            $consulta = 'SELECT id FROM ' . self::TABELA . ' WHERE email = :email';
 
             $stmt = $this->MySQL->getDb()->prepare($consulta);
             $stmt->bindParam(':email', $email);
             $stmt->bindParam(':login', $login);
             $stmt->execute();
 
-            // 0 = email já cadastrado | 2 = login já cadastrado
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
-                if (strcasecmp((string) $item['email'], $email) === 0) {
-                    return 0;
-                }
-                if (strcasecmp((string) $item['login'], $login) === 0) {
-                    return 2;
-                }
+            $item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($item !== false) {
+                return 0; // Usuário já cadastrado
             }
 
-            $db = $this->MySQL->getDb();
-            $db->beginTransaction();
+            // Inicia a transação para garantir atomicidade das duas inserções
+            $this->MySQL->getDb()->beginTransaction();
 
-            // 1. Usuário
-            $consulta = "INSERT INTO " . self::TABELA . " (name, login, password, email, frontpage_id, active, custom_code, otp_secret)
-                        VALUES (:nome, :login, :password, :email, 41, 'Y', '', '')";
-            $stmt = $db->prepare($consulta);
+            // 2. Insere o novo usuário na tabela system_user
+            $consulta = "INSERT INTO " . self::TABELA . " (name, login, password, email, frontpage_id, active)
+                    VALUES (:nome, :login, :password, :email, 41, 'Y')";
+            $stmt = $this->MySQL->getDb()->prepare($consulta);
             $stmt->bindParam(':nome', $nome);
             $stmt->bindParam(':login', $login);
             $stmt->bindParam(':password', $senha);
             $stmt->bindParam(':email', $email);
             $stmt->execute();
 
-            $idUsuario = (int) $db->lastInsertId();
+            // 3. Captura o ID do aluno recém-criado
+            $idAlunoCriado = (int) $this->MySQL->getDb()->lastInsertId();
 
-            // 2. Grupo Discente (system_user_group.id não é AUTO_INCREMENT)
-            $stmt = $db->prepare("INSERT INTO system_user_group (id, system_user_id, system_group_id)
-                                  SELECT COALESCE(MAX(id), 0) + 1, :idUsuario, :idGrupo FROM system_user_group");
-            $stmt->bindValue(':idUsuario', $idUsuario, PDO::PARAM_INT);
-            $stmt->bindValue(':idGrupo', self::GRUPO_DISCENTE, PDO::PARAM_INT);
-            $stmt->execute();
+            echo $idAlunoCriado;
 
-            // 3. Escola padrão dos alunos avulsos
-            $stmt = $db->prepare("INSERT INTO aluno_escola (id_aluno, id_escola) VALUES (:idUsuario, :idEscola)");
-            $stmt->bindValue(':idUsuario', $idUsuario, PDO::PARAM_INT);
-            $stmt->bindValue(':idEscola', self::ESCOLA_AVULSOS, PDO::PARAM_INT);
-            $stmt->execute();
+            if ($idAlunoCriado > 0) {
+                // 4. Insere o vínculo na tabela turma_aluno com id_turma = 46
+                $sqlTurmaAluno = "INSERT INTO turma_aluno (id_turma, id_aluno) VALUES (46, :id_aluno)";
+                $stmtTurma = $this->MySQL->getDb()->prepare($sqlTurmaAluno);
+                $stmtTurma->bindParam(':id_aluno', $idAlunoCriado, PDO::PARAM_INT);
+                $stmtTurma->execute();
 
-            $db->commit();
-            return 1;
-        }
-        catch (PDOException $e) {
-            if (isset($db) && $db->inTransaction()) {
-                $db->rollBack();
+                // Confirma todas as inserções no banco
+                $this->MySQL->getDb()->commit();
+
+                return 1; // Sucesso
             }
-            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+
+            // Se por algum motivo o id não foi retornado, cancela a operação
+            $this->MySQL->getDb()->rollBack();
+            return 0;
+
+        } catch (PDOException $e) {
+            // Desfaz qualquer inserção pendente caso ocorra um erro de SQL
+            if ($this->MySQL->getDb()->inTransaction()) {
+                $this->MySQL->getDb()->rollBack();
+            }
+            throw new \InvalidArgumentException("Erro SQL ao cadastrar usuário: " . $e->getMessage());
         }
     }
 

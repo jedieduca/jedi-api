@@ -1,48 +1,35 @@
 <?php
 
-namespace Classes\DB;
+namespace DB;
 
 use PDO;
 use PDOException;
 
 class MySQL
 {
-    private $db = null;
+    private $db;
 
     public function __construct()
     {
-        $this->conectar();
-    }
+        $host     = defined('HOST') ? HOST : ($_ENV['HOST'] ?? getenv('HOST') ?: '127.0.0.1');
+        $banco    = defined('BANCO') ? BANCO : ($_ENV['BANCO'] ?? getenv('BANCO') ?: 'jedi-educa-v2');
+        $usuario  = defined('USUARIO') ? USUARIO : ($_ENV['USUARIO'] ?? getenv('USUARIO') ?: 'root');
+        $senha    = defined('SENHA') ? SENHA : ($_ENV['SENHA'] ?? getenv('SENHA') ?: 'mys2Edu4Up@2025');
 
-    private function conectar()
-    {
         try {
-            // Configurações cruciais para depuração e codificação
-            $opcoes = [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"
-            ];
-
-            // Tenta a conexão com o IP interno que você colocou no bootstrap
-            $this->db = new PDO("mysql:host=" . HOST . ";dbname=" . BANCO, USER, SENHA, $opcoes);
-
+            $this->db = new PDO(
+                "mysql:host={$host};dbname={$banco};charset=utf8",
+                $usuario,
+                $senha
+            );
+            $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch (PDOException $e) {
-            // Força o PHP a parar tudo e te mostrar o erro REAL da conexão no Postman
-            header('Content-Type: application/json');
-            echo json_encode([
-                "erro" => "Falha ao conectar fisicamente no contêiner do banco",
-                "detalhes" => $e->getMessage()
-            ], JSON_UNESCAPED_UNICODE);
-            exit;
+            throw new \InvalidArgumentException("Falha ao conectar no banco: " . $e->getMessage());
         }
     }
 
     public function getDb()
     {
-        if ($this->db === null) {
-            $this->conectar();
-        }
         return $this->db;
     }
 }
