@@ -13,6 +13,8 @@ class SystemUserRepository
      */
     private $MySQL;
     public const TABELA = 'system_user';
+    public const GRUPO_DISCENTE = 4;          // system_group 'Discente'
+    public const ESCOLA_AVULSOS = 106;        // escola 'Escola JEDi Educa'
     public const TURMA_AVULSOS = 46;          // turma padrão dos alunos avulsos
 
     public function __construct() {
@@ -123,7 +125,7 @@ class SystemUserRepository
                 }
             }
 
-            // Inicia a transação para garantir atomicidade das duas inserções
+            // Inicia a transação para garantir atomicidade de todas as inserções
             $db = $this->MySQL->getDb();
             $db->beginTransaction();
 
@@ -140,7 +142,20 @@ class SystemUserRepository
             // 3. Captura o ID do aluno recém-criado
             $idAlunoCriado = (int) $db->lastInsertId();
 
-            // 4. Vincula o aluno à turma padrão dos avulsos
+            // 4. Grupo Discente (system_user_group.id não é AUTO_INCREMENT)
+            $stmt = $db->prepare("INSERT INTO system_user_group (id, system_user_id, system_group_id)
+                                  SELECT COALESCE(MAX(id), 0) + 1, :idAluno, :idGrupo FROM system_user_group");
+            $stmt->bindValue(':idAluno', $idAlunoCriado, PDO::PARAM_INT);
+            $stmt->bindValue(':idGrupo', self::GRUPO_DISCENTE, PDO::PARAM_INT);
+            $stmt->execute();
+
+            // 5. Escola padrão dos alunos avulsos
+            $stmt = $db->prepare("INSERT INTO aluno_escola (id_aluno, id_escola) VALUES (:idAluno, :idEscola)");
+            $stmt->bindValue(':idAluno', $idAlunoCriado, PDO::PARAM_INT);
+            $stmt->bindValue(':idEscola', self::ESCOLA_AVULSOS, PDO::PARAM_INT);
+            $stmt->execute();
+
+            // 6. Vincula o aluno à turma padrão dos avulsos
             $stmt = $db->prepare("INSERT INTO turma_aluno (id_turma, id_aluno) VALUES (:idTurma, :idAluno)");
             $stmt->bindValue(':idTurma', self::TURMA_AVULSOS, PDO::PARAM_INT);
             $stmt->bindValue(':idAluno', $idAlunoCriado, PDO::PARAM_INT);
