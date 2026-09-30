@@ -28,7 +28,11 @@ class MailUtil
         $mail->CharSet    = PHPMailer::CHARSET_UTF8;
         $mail->Timeout    = 15;
 
-        $mail->setFrom(getenv('SMTP_FROM') ?: $mail->Username, getenv('SMTP_FROM_NAME') ?: 'JEDi Educa');
+        $remetente = getenv('SMTP_FROM') ?: $mail->Username;
+        // Identifica o servidor pelo domínio do remetente (HELO e Message-ID), e não pelo nome do container
+        $mail->Hostname = substr((string) strrchr($remetente, '@'), 1) ?: '';
+
+        $mail->setFrom($remetente, getenv('SMTP_FROM_NAME') ?: 'JEDi Educa');
         $mail->addAddress($para, $nome);
         $mail->isHTML(true);
         $mail->Subject = $assunto;

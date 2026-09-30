@@ -224,6 +224,14 @@ class SystemUserService
         $validade = self::RESET_VALIDADE_MINUTOS;
 
         return <<<HTML
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redefinição de senha - JEDi Educa</title>
+</head>
+<body style="margin: 0; padding: 24px; background: #ffffff;">
 <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #222;">
   <h2 style="color: #5b21b6;">Redefinição de senha</h2>
   <p>Olá, {$nome}.</p>
@@ -235,6 +243,8 @@ class SystemUserService
   <p>Se você não fez essa solicitação, ignore este e-mail. Sua senha atual continua valendo.</p>
   <p style="font-size: 12px; color: #777;">Se o botão não funcionar, copie e cole no navegador:<br>{$link}</p>
 </div>
+</body>
+</html>
 HTML;
     }
 }
