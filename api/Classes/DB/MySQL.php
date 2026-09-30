@@ -11,10 +11,15 @@ class MySQL
 
     public function __construct()
     {
-        $host     = defined('HOST') ? HOST : ($_ENV['HOST'] ?? getenv('HOST') ?: '127.0.0.1');
-        $banco    = defined('BANCO') ? BANCO : ($_ENV['BANCO'] ?? getenv('BANCO') ?: 'jedi-educa-v2');
-        $usuario  = defined('USUARIO') ? USUARIO : ($_ENV['USUARIO'] ?? getenv('USUARIO') ?: 'root');
-        $senha    = defined('SENHA') ? SENHA : ($_ENV['SENHA'] ?? getenv('SENHA') ?: 'mys2Edu4Up@2025');
+        $host    = getenv('DB_HOST') ?: '';
+        $banco   = getenv('DB_NAME') ?: '';
+        $usuario = getenv('DB_USER') ?: '';
+        $senha   = getenv('DB_PASSWORD');
+
+        // Sem valor padrão: se faltar configuração, falha em vez de conectar no banco errado
+        if ($host === '' || $banco === '' || $usuario === '' || $senha === false) {
+            throw new \InvalidArgumentException('Configuração do banco ausente: defina DB_HOST, DB_NAME, DB_USER e DB_PASSWORD no .env');
+        }
 
         try {
             $this->db = new PDO(

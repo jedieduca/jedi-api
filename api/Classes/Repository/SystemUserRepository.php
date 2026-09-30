@@ -175,44 +175,6 @@ class SystemUserRepository
         }
     }
 
-    public function recuperarSenha($email)
-    {
-        try {
-            // 1. Busca o usuário pelo e-mail
-            $usuario = $this->repositoryPegarUserPorEmail($email);
-
-            if ($usuario === false || empty($usuario)) {
-                return 0;
-            }
-
-            // 2. Gera a nova senha em texto puro e aplica o MD5 (padrão do sistema)
-            $novaSenhaPura = $this->gerarSenhaAleatoria(10);
-            $senhaMd5 = md5($novaSenhaPura);
-
-            // 3. Atualiza no banco
-            $sucesso = $this->repositoryAtualizarSenha($usuario['id'], $senhaMd5);
-
-            // 4. Retorna a senha em texto puro se atualizou com sucesso, ou 0 se falhou
-            return $sucesso ? $novaSenhaPura : 0;
-
-        } catch (\Exception $e) {
-            return 0;
-        }
-    }
-
-    private function gerarSenhaAleatoria(int $tamanho = 10): string
-    {
-        $caracteres = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
-        $maxIndex = strlen($caracteres) - 1;
-        $senha = '';
-
-        for ($i = 0; $i < $tamanho; $i++) {
-            $senha .= $caracteres[random_int(0, $maxIndex)];
-        }
-
-        return $senha;
-    }
-
     public function repositoryAtualizarSenha($idUsuario, $senhaHash): bool
     {
         try {

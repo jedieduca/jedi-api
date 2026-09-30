@@ -12,11 +12,21 @@ services:
     volumes:
       - ./:/var/www/html 
     environment:
-      - HOST=${DB_HOST}
-      - BANCO=${DB_NAME}
-      - USER=${DB_USER}
-      - SENHA=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
       - DIR_PROJETO=${DIR_PROJETO}
+
+      # Recuperação de senha
+      - FRONTEND_URL=${FRONTEND_URL}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_SECURE=${SMTP_SECURE}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME}
       
       - PHP_OPCACHE_ENABLE=1
       - PHP_OPCACHE_MEMORY_CONSUMPTION=256

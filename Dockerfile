@@ -39,4 +39,11 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 RUN echo '<Directory /var/www/html/api/>\n\tOptions Indexes FollowSymLinks MultiViews\n\tAllowOverride All\n\tRequire all granted\n</Directory>' > /etc/apache2/conf-available/override-permissions.conf \
     && a2enconf override-permissions
 
+# Composer (gerenciador de dependências PHP, ex.: PHPMailer)
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
 WORKDIR /var/www/html
+
+# O volume ./:/var/www/html sobrepõe o que foi gerado no build, por isso
+# as dependências são instaladas ao subir o container (rápido se já existirem).
+CMD ["sh", "-c", "composer install --no-dev --no-interaction --optimize-autoloader || echo '[jedi-api] AVISO: composer install falhou'; exec apache2-foreground"]

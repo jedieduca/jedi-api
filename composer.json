@@ -1,0 +1,12 @@
+{
+    "name": "jedieduca/jedi-api",
+    "description": "API do JEDi Educa",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "phpmailer/phpmailer": "^6.9"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

@@ -142,14 +142,14 @@ class RequestValidator
                 elseif ($recurso === 'trocarSenha'){
                     $retorno = $usuariosService->alterarSenhaService();
                 }
-                elseif ($recurso === 'enviaEmail'){
-                    $retorno = $usuariosService->enviarEmailService();
-                }
                 elseif ($recurso === 'cadastrar'){
                     $retorno = $usuariosService->cadastrarUsuarioService();
                 }
                 elseif ($recurso === 'recuperarSenha'){
                     $retorno = $usuariosService->recuperarSenhaService();
+                }
+                elseif ($recurso === 'redefinirSenha'){
+                    $retorno = $usuariosService->redefinirSenhaService();
                 }
                 break;
 

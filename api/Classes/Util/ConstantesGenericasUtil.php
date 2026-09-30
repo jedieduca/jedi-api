@@ -45,6 +45,11 @@ abstract class ConstantesGenericasUtil
     public const MSG_ERRO_LOGIN_EXISTENTE = 'Login já existente!';
     public const MSG_ERRO_LOGIN_SENHA_OBRIGATORIO = 'Login e Senha são obrigatórios!';
 
+    /* RECURSO RECUPERAR / REDEFINIR SENHA */
+    public const MSG_ERRO_RESET_LINK_INVALIDO = 'Este link de redefinição de senha é inválido ou expirou. Solicite um novo.';
+    public const MSG_ERRO_RESET_SENHA_CURTA = 'A nova senha deve ter no mínimo 8 caracteres.';
+    public const MSG_ERRO_RESET_FALHA = 'Não foi possível redefinir a senha neste momento. Tente novamente.';
+
     /*RECURSO SALVAR PARTIDA*/
     public const MSG_ERRO_SALVARPARTIDA_BODY = 'Body inválido. Envie {"id": N, "jogadorEmail": "email", "dataHoraInicio": "Data Hora",
     "nome": "nome" (Opicional), "idade": N (Opicional), "autoAvaliacao": "Auto Avaliação", "avatar": "Nome do avatar", "tempoGasto": N,
