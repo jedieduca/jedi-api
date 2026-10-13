@@ -11,137 +11,195 @@ class PartidasPerguntasRepository
 
     public const TABELA = 'partidas_perguntas';
 
+    // id_usuario gravado quando o e-mail do jogador não é encontrado em system_user (usuário admin);
+    // agrupa jogadores diferentes, por isso fica fora dos rankings
+    private const ID_USUARIO_NAO_IDENTIFICADO = 1;
+
     public function __construct(){
         $this->MySQL = new MySQL();
     }
 
     /**
+     * Ranking global: considera as partidas de todos os jogadores
      * @param $idPartida
      * @return array
      */
     public function repositoriRanking($idPartida)
     {
         try {
-            $jogadorAtual = null;
-
-            $sqlGeral = "SELECT id, nome, jogador, MAX(pontuacao) AS pontuacao, 
-                    (SUM(qtd_acertos)/(SUM(qtd_acertos)+SUM(qtd_erros)))*100 AS percentual_acertos, 
-                    MIN(tempo_gasto) AS tempo_gasto, COUNT(*) AS total_partidas
-                    FROM " . self::TABELA . " 
-                    GROUP BY login
-                    UNION ALL   
-                    SELECT id, nome,jogador, pontuacao, 
-                    (SUM(qtd_acertos)/(SUM(qtd_acertos)+SUM(qtd_erros)))*100 AS percentual_acertos, 
-                    tempo_gasto, COUNT(*) AS total_partidas FROM " . self::TABELA . " WHERE id = :idPartida
-                    ORDER BY pontuacao DESC, percentual_acertos DESC, tempo_gasto ASC;";
-
-            $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
-            $stmt->bindValue(':idPartida', $idPartida, PDO::PARAM_INT);
-            $stmt->execute();
-            $rankingCompleto = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-
-            $top10 = [];
-
-            // Numerar TODOS e separar o que precisamos
-            foreach ($rankingCompleto as $index => $linha) {
-                $posicaoAtual = (int)($index + 1);
-
-                $item = [
-                    "id_partida" => (int) $linha['id'],
-                    "jogador" => $linha['jogador'],
-                    "nome" => $linha['nome'],
-                    "pontuacao" => $linha['pontuacao'],
-                    "percentual_acertos" => $linha['percentual_acertos'],
-                    "tempo_gasto" => $linha['tempo_gasto'],
-                    "total_partidas" => $linha['total_partidas'],
-                    "posicao" => $posicaoAtual
-                ];
-
-                if($item['id_partida'] == $idPartida){
-                    $jogadorAtual = $item;
-
-                    $sqlGeral = "SELECT auto_avaliacao, avaliacao_jogo FROM " . self::TABELA . " WHERE id = :idPartida";
-                    $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
-                    $stmt->bindValue(':idPartida', $idPartida, PDO::PARAM_INT);
-                    $stmt->execute();
-                    $avaliacao = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-                    $jogadorAtual['auto_avaliacao'] = $avaliacao['auto_avaliacao'] ?? null;
-                    $jogadorAtual['avaliacao_jogo'] = $avaliacao['avaliacao_jogo'] ?? null;
-                }
-
-                if ($posicaoAtual <= 10) {
-                    $top10[] = $item;
-                }
-            }
-
-            if ($jogadorAtual && !in_array($jogadorAtual, $top10, true)) {
-                $top10[] = $jogadorAtual;
-            }
-
-            return $top10;
-
+            return $this->montarRankingDasPartidas(self::TABELA, $idPartida);
         } catch (\PDOException $e) {
             throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
         }
     }
 
-    public function repositoriRankingTurma($email)
+    /**
+     * Escola e turma do jogador que fez a partida
+     * (system_user -> usuario_escola -> escola -> turma -> turma_aluno)
+     * @param $idPartida
+     * @return array|false ['id_escola' => N, 'id_turma' => N], ou false se o jogador não tiver vínculo
+     */
+    public function repositoriVinculoEscolar($idPartida)
     {
         try {
-            $jogadorAtual = null;
-
-            // SQL unificado em snake_case com JOIN para buscar o ranking da turma vinculada ao email
-            $sqlGeral = "SELECT 
-                        pp.id, pp.jogador, pp.nome, MAX(pp.pontuacao) AS pontuacao, 
-                        (SUM(pp.qtd_acertos)/(SUM(pp.qtd_acertos)+SUM(pp.qtd_erros)))*100 AS percentual_acertos, 
-                        MIN(pp.tempo_gasto) AS tempo_gasto, COUNT(*) AS total_partidas
+            $sql = "SELECT e.id AS id_escola, t.id AS id_turma
                     FROM " . self::TABELA . " pp
-                    INNER JOIN system_user su ON pp.login = su.email
-                    INNER JOIN oferta_turma_aluno ota ON su.id = ota.id_aluno
-                    INNER JOIN turma_oferta tof ON ota.id_oferta_turma = tof.id
-                    INNER JOIN turma t ON tof.id_turma = t.id
-                    WHERE t.id = (
-                        SELECT t2.id FROM turma t2 
-                        INNER JOIN turma_oferta tof2 ON t2.id = tof2.id_turma
-                        INNER JOIN oferta_turma_aluno ota2 ON tof2.id = ota2.id_oferta_turma
-                        INNER JOIN system_user su2 ON ota2.id_aluno = su2.id
-                        WHERE su2.email = :email LIMIT 1
-                    )
-                    GROUP BY pp.login
-                    ORDER BY pontuacao DESC, percentual_acertos DESC, tempo_gasto ASC";
+                    INNER JOIN system_user su ON su.id = pp.id_usuario
+                    INNER JOIN usuario_escola ue ON su.id = ue.id_usuario
+                    INNER JOIN escola e ON ue.id_escola = e.id
+                    INNER JOIN turma t ON e.id = t.id_escola
+                    INNER JOIN turma_aluno ta ON t.id = ta.id_turma AND su.id = ta.id_aluno
+                    WHERE pp.id = :idPartida
+                    LIMIT 1";
 
-            $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
-            $stmt->bindValue(':email', $email, \PDO::PARAM_STR);
+            $stmt = $this->MySQL->getDb()->prepare($sql);
+            $stmt->bindValue(':idPartida', $idPartida, PDO::PARAM_INT);
             $stmt->execute();
-            $rankingCompleto = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-            $top10 = [];
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+        }
+    }
 
-            foreach ($rankingCompleto as $index => $linha) {
-                $posicaoAtual = (int)($index + 1);
+    /**
+     * Ranking da escola: partidas dos alunos das turmas da escola
+     * @param $idPartida
+     * @param $idEscola
+     * @return array
+     */
+    public function repositoriRankingEscola($idPartida, $idEscola)
+    {
+        return $this->montarRankingEscolar($idPartida, 't.id_escola', $idEscola);
+    }
 
-                $item = [
-                    "id_partida" => (int) $linha['id'],
-                    "nome" => $linha['nome'],
-                    "jogador" => $linha['jogador'],
-                    "pontuacao" => $linha['pontuacao'],
-                    "percentual_acertos" => $linha['percentual_acertos'],
-                    "tempo_gasto" => $linha['tempo_gasto'],
-                    "total_partidas" => $linha['total_partidas'],
-                    "posicao" => $posicaoAtual
-                ];
+    /**
+     * Ranking da turma: partidas dos alunos da turma
+     * @param $idPartida
+     * @param $idTurma
+     * @return array
+     */
+    public function repositoriRankingTurma($idPartida, $idTurma)
+    {
+        return $this->montarRankingEscolar($idPartida, 't.id', $idTurma);
+    }
 
-                if ($posicaoAtual <= 10) {
-                    $top10[] = $item;
-                }
+    /**
+     * Filtra as partidas dos alunos vinculados (pela mesma cadeia de repositoriVinculoEscolar)
+     * à escola ou turma informada e monta o ranking
+     * @param $idPartida
+     * @param string $colunaFiltro 't.id_escola' ou 't.id'
+     * @param $idFiltro
+     * @return array
+     */
+    private function montarRankingEscolar($idPartida, string $colunaFiltro, $idFiltro)
+    {
+        try {
+            $with = "WITH partidas_grupo AS (
+                        SELECT pp.* FROM " . self::TABELA . " pp
+                        WHERE pp.id_usuario IN (
+                            SELECT su.id FROM system_user su
+                            INNER JOIN usuario_escola ue ON su.id = ue.id_usuario
+                            INNER JOIN escola e ON ue.id_escola = e.id
+                            INNER JOIN turma t ON e.id = t.id_escola
+                            INNER JOIN turma_aluno ta ON t.id = ta.id_turma AND su.id = ta.id_aluno
+                            WHERE {$colunaFiltro} = :idFiltro
+                        )
+                    )";
+
+            return $this->montarRankingDasPartidas('partidas_grupo', $idPartida, $with, [':idFiltro' => $idFiltro]);
+        } catch (\PDOException $e) {
+            throw new \InvalidArgumentException("Erro SQL: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Monta o top 10 a partir de um conjunto de partidas, agrupando os jogadores por id_usuario,
+     * e acrescenta, no fim, o resumo da partida atual
+     * @param string $origem tabela ou CTE com as partidas consideradas
+     * @param $idPartida
+     * @param string $with cláusula WITH que define $origem, quando ela for uma CTE
+     * @param array $parametros parâmetros extras usados em $with
+     * @return array
+     */
+    private function montarRankingDasPartidas(string $origem, $idPartida, string $with = '', array $parametros = [])
+    {
+        $jogadorAtual = null;
+        $semNaoIdentificado = "id_usuario <> " . self::ID_USUARIO_NAO_IDENTIFICADO;
+
+        // 1ª parte: melhor partida de cada jogador (rn = 1) + totais por jogador calculados com GROUP BY
+        //   (SUM/MIN/COUNT ... OVER (PARTITION BY) no MariaDB recalcula a partição inteira a cada linha e fica muito lento)
+        // 2ª parte: a partida atual, usada apenas para montar o resumo do jogador atual
+        $sqlGeral = $with . "
+                SELECT 'ranking' AS origem, melhores.id, melhores.nome, melhores.jogador, melhores.pontuacao,
+                totais.percentual_acertos, totais.tempo_gasto, totais.total_partidas,
+                NULL AS auto_avaliacao, NULL AS avaliacao_jogo
+                FROM (
+                    SELECT p.id, p.id_usuario, p.nome, p.jogador, p.pontuacao,
+                    ROW_NUMBER() OVER (PARTITION BY p.id_usuario ORDER BY p.pontuacao DESC, p.tempo_gasto ASC, p.id DESC) AS rn
+                    FROM {$origem} p
+                    WHERE p.{$semNaoIdentificado}
+                ) melhores
+                INNER JOIN (
+                    SELECT id_usuario, (SUM(qtd_acertos)/(SUM(qtd_acertos)+SUM(qtd_erros)))*100 AS percentual_acertos,
+                    MIN(tempo_gasto) AS tempo_gasto, COUNT(*) AS total_partidas
+                    FROM {$origem}
+                    WHERE {$semNaoIdentificado}
+                    GROUP BY id_usuario
+                ) totais ON totais.id_usuario = melhores.id_usuario
+                WHERE melhores.rn = 1
+                UNION ALL
+                SELECT 'atual' AS origem, id, nome, jogador, pontuacao,
+                (qtd_acertos/(qtd_acertos+qtd_erros))*100 AS percentual_acertos,
+                tempo_gasto, 1 AS total_partidas, auto_avaliacao, avaliacao_jogo
+                FROM " . self::TABELA . " WHERE id = :idPartida
+                ORDER BY pontuacao DESC, percentual_acertos DESC, tempo_gasto ASC, origem ASC;";
+
+        $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
+        $stmt->bindValue(':idPartida', $idPartida, PDO::PARAM_INT);
+        foreach ($parametros as $nome => $valor) {
+            $stmt->bindValue($nome, $valor, PDO::PARAM_INT);
+        }
+        $stmt->execute();
+        $rankingCompleto = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        $top10 = [];
+        $posicao = 0;
+
+        // Numera apenas as linhas do ranking; a linha 'atual' recebe a posição que ocuparia
+        // (em empate ela vem antes, por causa do "origem ASC")
+        foreach ($rankingCompleto as $linha) {
+            $item = [
+                "id_partida" => (int) $linha['id'],
+                "jogador" => $linha['jogador'],
+                "nome" => $linha['nome'],
+                "pontuacao" => $linha['pontuacao'],
+                "percentual_acertos" => $linha['percentual_acertos'],
+                "tempo_gasto" => $linha['tempo_gasto'],
+                "total_partidas" => $linha['total_partidas'],
+                "posicao" => $posicao + 1
+            ];
+
+            if ($linha['origem'] === 'atual') {
+                $jogadorAtual = $item;
+                $jogadorAtual['auto_avaliacao'] = $linha['auto_avaliacao'];
+                $jogadorAtual['avaliacao_jogo'] = $linha['avaliacao_jogo'];
+                continue;
             }
 
-            return $top10;
+            $posicao++;
 
-        } catch (\PDOException $e) {
-            throw new \InvalidArgumentException("Erro no Ranking da Turma: " . $e->getMessage());
+            if ($posicao <= 10) {
+                $top10[] = $item;
+            }
         }
+
+        // O front trata o último item da lista como o jogador atual
+        if ($jogadorAtual) {
+            $top10[] = $jogadorAtual;
+        }
+
+        return $top10;
     }
 
     /**

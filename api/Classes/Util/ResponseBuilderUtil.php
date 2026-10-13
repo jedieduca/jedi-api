@@ -66,7 +66,9 @@ class ResponseBuilderUtil
                 "percentualAcertos" => $linha['percentual_acertos'] ?? ($linha['percentualAcertos'] ?? "0%"),
                 "tempoGasto"        => $linha['tempo_gasto'] ?? ($linha['tempoGasto'] ?? "00:00"),
                 "totalPartidas"     => $linha['total_partidas'] ?? ($linha['totalPartidas'] ?? "0"),
-                "posicao"           => isset($linha['posicao']) ? (int)$linha['posicao'] : null
+                "posicao"           => isset($linha['posicao']) ? (int)$linha['posicao'] : null,
+                "autoAvaliacao"     => $linha['auto_avaliacao'] ?? "",
+                "avaliacaoJogo"     => $linha['avaliacao_jogo'] ?? ""
             ];
         }
 

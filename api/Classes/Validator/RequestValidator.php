@@ -162,6 +162,9 @@ class RequestValidator
                 elseif ($recurso === 'salvarPartida'){
                     $retorno = $partidasPerguntasService->serviceSalvarPartida();
                 }
+                elseif ($recurso === 'rankingEscola'){
+                    $retorno = $partidasPerguntasService->serviceRankingEscola();
+                }
                 elseif ($recurso === 'rankingTurma'){
                     $retorno = $partidasPerguntasService->serviceRankingTurma();
                 }

@@ -64,6 +64,8 @@ abstract class ConstantesGenericasUtil
     /* RECURSOS RANKING */
     public const MSG_ERRO_RANKING_SEM_REGISTRO = 'Partida sem registro!';
 
+    public const MSG_ERRO_RANKING_SEM_VINCULO_ESCOLAR = 'Você ainda não está vinculado a uma escola e turma.';
+
     public const MSG_ERRO_RANKING_BODY = 'Body inválido. Envie {"idPartida": N} ou {"idPartida": N, "jogador": "jogador"}';
 
     public const MSG_ERRO_ID_TEMA_OBRIGATORIO = 'O ID do tema é obrigatório!';

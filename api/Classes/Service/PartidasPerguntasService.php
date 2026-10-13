@@ -59,20 +59,47 @@ class PartidasPerguntasService
         throw new \InvalidArgumentException(ConstantesGenericasUtil::MSG_ERRO_RANKING_BODY);
     }
 
-    public function serviceRankingTurma(){
+    /**
+     * @return array
+     */
+    public function serviceRankingEscola()
+    {
+        return $this->rankingEscolar('escola');
+    }
 
-        $email = $this->dados['email'] ?? null;
+    /**
+     * @return array
+     */
+    public function serviceRankingTurma()
+    {
+        return $this->rankingEscolar('turma');
+    }
 
-        if($email !== null){
-            $resultado = $this->PartidasPerguntasRepository->repositoriRankingTurma($email);
+    /**
+     * Ranking restrito à escola ou à turma do jogador que fez a partida
+     * @param string $tipo 'escola' ou 'turma'
+     * @return array
+     */
+    private function rankingEscolar(string $tipo)
+    {
+        $idPartida = $this->dados['idPartida'] ?? null;
+
+        if($idPartida !== null){
+            $vinculo = $this->PartidasPerguntasRepository->repositoriVinculoEscolar($idPartida);
+
+            if(!$vinculo){
+                throw new \InvalidArgumentException(ConstantesGenericasUtil::MSG_ERRO_RANKING_SEM_VINCULO_ESCOLAR);
+            }
+
+            $resultado = $tipo === 'escola'
+                ? $this->PartidasPerguntasRepository->repositoriRankingEscola($idPartida, $vinculo['id_escola'])
+                : $this->PartidasPerguntasRepository->repositoriRankingTurma($idPartida, $vinculo['id_turma']);
 
             if(count($resultado) > 0){
                 return ResponseBuilderUtil::montarRanking($resultado);
             }
 
-            elseif (count($resultado) === 0){
-                throw new \InvalidArgumentException(ConstantesGenericasUtil::MSG_ERRO_RANKING_SEM_REGISTRO);
-            }
+            throw new \InvalidArgumentException(ConstantesGenericasUtil::MSG_ERRO_RANKING_SEM_REGISTRO);
         }
 
         throw new \InvalidArgumentException(ConstantesGenericasUtil::MSG_ERRO_RANKING_BODY);
