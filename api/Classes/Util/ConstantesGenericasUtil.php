@@ -50,6 +50,11 @@ abstract class ConstantesGenericasUtil
     public const MSG_ERRO_RESET_SENHA_CURTA = 'A nova senha deve ter no mínimo 8 caracteres.';
     public const MSG_ERRO_RESET_FALHA = 'Não foi possível redefinir a senha neste momento. Tente novamente.';
 
+    /* RECURSO TROCAR SENHA */
+    public const MSG_ERRO_SENHA_ATUAL_INVALIDA = 'Usuário ou senha atual incorretos.';
+    public const MSG_ERRO_TROCA_SENHA_BODY = 'Informe usuário, senha atual e nova senha.';
+    public const MSG_ERRO_SENHA_NOVA_IGUAL_ATUAL = 'A nova senha deve ser diferente da senha atual.';
+
     /*RECURSO SALVAR PARTIDA*/
     public const MSG_ERRO_SALVARPARTIDA_BODY = 'Body inválido. Envie {"id": N, "jogadorEmail": "email", "dataHoraInicio": "Data Hora",
     "nome": "nome" (Opicional), "idade": N (Opicional), "autoAvaliacao": "Auto Avaliação", "avatar": "Nome do avatar", "tempoGasto": N,
