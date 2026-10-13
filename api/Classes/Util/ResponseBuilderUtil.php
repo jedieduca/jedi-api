@@ -68,11 +68,58 @@ class ResponseBuilderUtil
                 "totalPartidas"     => $linha['total_partidas'] ?? ($linha['totalPartidas'] ?? "0"),
                 "posicao"           => isset($linha['posicao']) ? (int)$linha['posicao'] : null,
                 "autoAvaliacao"     => $linha['auto_avaliacao'] ?? "",
-                "avaliacaoJogo"     => $linha['avaliacao_jogo'] ?? ""
+                "avaliacaoJogo"     => $linha['avaliacao_jogo'] ?? "",
+                // O nome completo do cadastro não sai da API: só o primeiro nome e a inicial do sobrenome
+                "nomeCurto"         => self::nomeCurto($linha['nome_usuario'] ?? ""),
+                "escola"            => self::escolaCurta($linha['escola'] ?? ""),
+                "turma"             => trim($linha['turma'] ?? "")
             ];
         }
 
         return $resultado;
+    }
+
+    /**
+     * Primeiro nome + inicial do último sobrenome: "MARIA EDUARDA FONSECA" -> "Maria F."
+     * @param string $nomeCompleto
+     * @return string
+     */
+    private static function nomeCurto(string $nomeCompleto): string
+    {
+        $nome = mb_convert_case(mb_strtolower(trim($nomeCompleto), 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
+        $partes = array_values(array_filter(
+            preg_split('/\s+/u', $nome) ?: [],
+            fn($parte) => $parte !== '' && !in_array($parte, ['De', 'Da', 'Do', 'Dos', 'Das', 'E'], true)
+        ));
+
+        if (count($partes) === 0) {
+            return "";
+        }
+
+        if (count($partes) === 1) {
+            return $partes[0];
+        }
+
+        return $partes[0] . ' ' . mb_substr(end($partes), 0, 1, 'UTF-8') . '.';
+    }
+
+    /**
+     * Nome da escola sem o tipo e com títulos abreviados:
+     * "Colégio Estadual Presidente Castelo Branco" -> "Pres. Castelo Branco"
+     * @param string $nomeEscola
+     * @return string
+     */
+    private static function escolaCurta(string $nomeEscola): string
+    {
+        $nome = trim($nomeEscola);
+        $nome = preg_replace('/^(Colégio Estadual|Colégio Municipal|Escola Estadual|Escola Municipal|Colégio|Escola)\s+/iu', '', $nome);
+        $nome = preg_replace('/\s+-\s+Unidade\s+/iu', ' ', $nome);
+
+        return preg_replace(
+            ['/\bPresidente\b/u', '/\bAlmirante\b/u', '/\bProfessora\b/u', '/\bProfessor\b/u'],
+            ['Pres.', 'Alm.', 'Profa.', 'Prof.'],
+            $nome
+        );
     }
 
     /**

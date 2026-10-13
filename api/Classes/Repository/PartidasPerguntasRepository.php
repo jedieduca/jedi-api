@@ -127,13 +127,25 @@ class PartidasPerguntasRepository
         $jogadorAtual = null;
         $semNaoIdentificado = "id_usuario <> " . self::ID_USUARIO_NAO_IDENTIFICADO;
 
+        // Escola e turma de cada aluno (mesma cadeia de repositoriVinculoEscolar); cada aluno tem no máximo uma turma
+        $vinculoEscolar = "(
+                    SELECT ta.id_aluno AS id_usuario, MIN(e.nome) AS escola, MIN(t.identificacao) AS turma
+                    FROM turma_aluno ta
+                    INNER JOIN turma t ON t.id = ta.id_turma
+                    INNER JOIN escola e ON e.id = t.id_escola
+                    INNER JOIN usuario_escola ue ON ue.id_usuario = ta.id_aluno AND ue.id_escola = e.id
+                    GROUP BY ta.id_aluno
+                )";
+
         // 1ª parte: melhor partida de cada jogador (rn = 1) + totais por jogador calculados com GROUP BY
         //   (SUM/MIN/COUNT ... OVER (PARTITION BY) no MariaDB recalcula a partição inteira a cada linha e fica muito lento)
         // 2ª parte: a partida atual, usada apenas para montar o resumo do jogador atual
+        // Nas duas: nome do cadastro, escola e turma, usados para identificar o jogador na tela
         $sqlGeral = $with . "
                 SELECT 'ranking' AS origem, melhores.id, melhores.nome, melhores.jogador, melhores.pontuacao,
                 totais.percentual_acertos, totais.tempo_gasto, totais.total_partidas,
-                NULL AS auto_avaliacao, NULL AS avaliacao_jogo
+                NULL AS auto_avaliacao, NULL AS avaliacao_jogo,
+                su.name AS nome_usuario, vinculo.escola, vinculo.turma
                 FROM (
                     SELECT p.id, p.id_usuario, p.nome, p.jogador, p.pontuacao,
                     ROW_NUMBER() OVER (PARTITION BY p.id_usuario ORDER BY p.pontuacao DESC, p.tempo_gasto ASC, p.id DESC) AS rn
@@ -147,12 +159,18 @@ class PartidasPerguntasRepository
                     WHERE {$semNaoIdentificado}
                     GROUP BY id_usuario
                 ) totais ON totais.id_usuario = melhores.id_usuario
+                LEFT JOIN system_user su ON su.id = melhores.id_usuario
+                LEFT JOIN {$vinculoEscolar} vinculo ON vinculo.id_usuario = melhores.id_usuario
                 WHERE melhores.rn = 1
                 UNION ALL
-                SELECT 'atual' AS origem, id, nome, jogador, pontuacao,
-                (qtd_acertos/(qtd_acertos+qtd_erros))*100 AS percentual_acertos,
-                tempo_gasto, 1 AS total_partidas, auto_avaliacao, avaliacao_jogo
-                FROM " . self::TABELA . " WHERE id = :idPartida
+                SELECT 'atual' AS origem, a.id, a.nome, a.jogador, a.pontuacao,
+                (a.qtd_acertos/(a.qtd_acertos+a.qtd_erros))*100 AS percentual_acertos,
+                a.tempo_gasto, 1 AS total_partidas, a.auto_avaliacao, a.avaliacao_jogo,
+                su.name AS nome_usuario, vinculo.escola, vinculo.turma
+                FROM " . self::TABELA . " a
+                LEFT JOIN system_user su ON su.id = a.id_usuario AND a.{$semNaoIdentificado}
+                LEFT JOIN {$vinculoEscolar} vinculo ON vinculo.id_usuario = a.id_usuario AND a.{$semNaoIdentificado}
+                WHERE a.id = :idPartida
                 ORDER BY pontuacao DESC, percentual_acertos DESC, tempo_gasto ASC, origem ASC;";
 
         $stmt = $this->MySQL->getDb()->prepare($sqlGeral);
@@ -177,7 +195,10 @@ class PartidasPerguntasRepository
                 "percentual_acertos" => $linha['percentual_acertos'],
                 "tempo_gasto" => $linha['tempo_gasto'],
                 "total_partidas" => $linha['total_partidas'],
-                "posicao" => $posicao + 1
+                "posicao" => $posicao + 1,
+                "nome_usuario" => $linha['nome_usuario'],
+                "escola" => $linha['escola'],
+                "turma" => $linha['turma']
             ];
 
             if ($linha['origem'] === 'atual') {
